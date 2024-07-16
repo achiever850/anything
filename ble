@@ -46,3 +46,37 @@ SELECT
 FROM categorized_employees
 GROUP BY category
 WITH ROLLUP;
+
+--------------------------------
+
+
+WITH cte_ActiveRecords AS (
+    SELECT
+        f.emplid,
+        f.empl_rcd,
+        f.effdt,
+        r.category,
+        r.retirement_eligible_flag,
+        ROW_NUMBER() OVER (PARTITION BY f.emplid ORDER BY f.empl_rcd, f.effdt DESC) AS rank_emplid
+    FROM reporting.vw_dimretirementeligibility_temp r 
+    RIGHT JOIN datawarehouse.hrsmart_factpsgutjob f 
+    ON f.emplid = r.emplid
+    WHERE '2024-06-05' BETWEEN f.effdt AND f.expdt
+    AND f.empl_status IN ('A', 'L', 'S', 'P', 'W')
+    AND f.gvt_status_type IN ('COM', 'COR')
+    AND f.gvt_pay_plan > '00'
+),
+filtered_records AS (
+    SELECT 
+        emplid,
+        category
+    FROM cte_ActiveRecords
+    WHERE rank_emplid = 1
+)
+SELECT 
+    category,
+    COUNT(emplid) AS distinct_emplid_count
+FROM filtered_records
+GROUP BY category
+WITH ROLLUP;
+
