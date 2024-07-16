@@ -1,0 +1,48 @@
+WITH cte_ActiveRecords AS (
+    SELECT
+        f.emplid,
+        f.empl_rcd,
+        f.effdt,
+        r.category,
+        r.retirement_eligible_flag,
+        ROW_NUMBER() OVER (PARTITION BY f.emplid ORDER BY f.empl_rcd, f.effdt DESC) AS rank_emplid
+    FROM reporting.vw_dimretirementeligibility_temp r 
+    RIGHT JOIN datawarehouse.hrsmart_factpsgutjob f 
+    ON f.emplid = r.emplid
+    WHERE '2024-06-05' BETWEEN f.effdt AND f.expdt
+    AND f.empl_status IN ('A', 'L', 'S', 'P', 'W')
+    AND f.gvt_status_type IN ('COM', 'COR')
+    AND f.gvt_pay_plan > '00'
+),
+categorized_employees AS (
+    SELECT
+        CASE
+            WHEN category = 'CSRS OFFSET' THEN 'CSRS OFFSET'
+            WHEN category = 'CSRS-SPEC' THEN 'CSRS-SPEC'
+            WHEN category = 'FERS' THEN 'FERS'
+            WHEN category = 'FERS-FRAE' THEN 'FERS-FRAE'
+            WHEN category = 'FERS-RAE' THEN 'FERS-RAE'
+            WHEN category = 'FICA' THEN 'FICA'
+            WHEN category = 'FICA AND FULL CSRS' THEN 'FICA AND FULL CSRS'
+            WHEN category = 'FULL CSRS' THEN 'FULL CSRS'
+            WHEN category = 'NAF' THEN 'NAF'
+            WHEN category = 'NONE' THEN 'NONE'
+            WHEN category = 'NON-ELIGIBLE' THEN 'NON-ELIGIBLE'
+            ELSE 'UNKNOWN'
+        END AS category,
+        emplid
+    FROM (
+        SELECT 
+            ROW_NUMBER() OVER (PARTITION BY emplid ORDER BY empl_rcd, effdt DESC) AS rank_emplid, 
+            category,
+            emplid
+        FROM cte_ActiveRecords
+    ) AS ranked_records
+    WHERE rank_emplid = 1
+)
+SELECT 
+    category,
+    COUNT(DISTINCT emplid) AS distinct_emplid_count
+FROM categorized_employees
+GROUP BY category
+WITH ROLLUP;
