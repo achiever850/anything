@@ -1,112 +1,112 @@
-WITH cte_retire AS (
+WITH CTE_RETIRE AS (
     SELECT 
-        f.factpsgtjobid AS retirementeligibilitysid, 
-        f.gvt_retire_plan, 
+        f.FACTPSGVTJOBID AS RETIREMENTELIGIBILITYSID,
+        f.GVT_RETIRE_PLAN,
         CASE 
-            WHEN f.gvt_retire_plan = '1' THEN 'Full CSRS' 
-            WHEN f.gvt_retire_plan = '2' THEN 'FICA' 
-            WHEN f.gvt_retire_plan = '4' THEN 'None' 
-            WHEN f.gvt_retire_plan = '5' THEN 'NAF' 
-            WHEN f.gvt_retire_plan = '6' THEN 'CSRS-Spec' 
-            WHEN f.gvt_retire_plan = 'C' THEN 'CSRS Offset' 
-            WHEN f.gvt_retire_plan = 'E' THEN 'CSRS Offset - Spec' 
-            WHEN f.gvt_retire_plan = 'K' THEN 'FERS' 
-            WHEN f.gvt_retire_plan = 'KR' THEN 'FERS-RAE' 
-            WHEN f.gvt_retire_plan = 'KF' THEN 'FERS-FRAE' 
-            WHEN f.gvt_retire_plan = 'M' THEN 'FERS-Spec' 
-            WHEN f.gvt_retire_plan = 'MR' THEN 'FERS-RAE-Spec' 
-            WHEN f.gvt_retire_plan = 'MF' THEN 'FERS-FRAE-Spec' 
-            WHEN f.gvt_retire_plan = 'R' THEN 'FICA and Full CSRS' 
-            WHEN f.gvt_retire_plan = 'T' THEN 'FICA and Full CSRS Spec' 
-            ELSE 'Unknown' 
-        END AS category, 
-        gp.birthdate 
+            WHEN f.GVT_RETIRE_PLAN = '1' THEN 'FULL CSRS'
+            WHEN f.GVT_RETIRE_PLAN = '2' THEN 'FICA'
+            WHEN f.GVT_RETIRE_PLAN = '4' THEN 'NONE'
+            WHEN f.GVT_RETIRE_PLAN = '5' THEN 'NAF'
+            WHEN f.GVT_RETIRE_PLAN = '6' THEN 'CSRS-SPEC'
+            WHEN f.GVT_RETIRE_PLAN = 'C' THEN 'CSRS-OFFSET'
+            WHEN f.GVT_RETIRE_PLAN = 'E' THEN 'CSRS-OFFSET-SPEC'
+            WHEN f.GVT_RETIRE_PLAN = 'K' THEN 'FERS'
+            WHEN f.GVT_RETIRE_PLAN = 'KR' THEN 'FERS-RAE'
+            WHEN f.GVT_RETIRE_PLAN = 'KF' THEN 'FERS-FRAE'
+            WHEN f.GVT_RETIRE_PLAN = 'MF' THEN 'FERS-SPEC'
+            WHEN f.GVT_RETIRE_PLAN = 'R' THEN 'FICA AND FULL CSRS'
+            WHEN f.GVT_RETIRE_PLAN = 'T' THEN 'FICA AND FULL CSRS SPEC'
+            ELSE 'UNKNOWN' 
+        END AS CATEGORY,
+        gp.BIRTHDATE,
+        -- Your other CASE statements for eligibility dates here...
     FROM 
-        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB F 
+        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB f
     LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA GP ON F.DIMPSGVTPERSDATAID = GP.DIMPSGVTPERSDATAID
-), 
+        DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA gp 
+        ON f.DIMPSGVTPERSDATAID = gp.DIMPSGVTPERSDATAID
+),
 CTE_DETAIL AS (
-    SELECT 
-        gj.emplid, 
-        gj.empl_rcd, 
-        gj.effdt, 
-        r.category, 
-        r.first_eligibility_date, 
-        r.gvt_retire_plan, 
+    SELECT
+        gj.EMPLID,
+        gj.EMPL_RCD,
+        gj.EFFDT,
+        r.CATEGORY,
+        r.FIRST_ELIGIBILITY_DATE,
+        gj.GVT_RETIRE_PLAN,
         CASE 
-            WHEN r.first_eligibility_date IS NULL THEN NULL 
-            WHEN r.first_eligibility_date <= DATE '2024-08-08' THEN 'YES' 
+            WHEN FIRST_ELIGIBILITY_DATE IS NULL THEN NULL 
+            WHEN FIRST_ELIGIBILITY_DATE <= DATE '2024-08-08' THEN 'YES' 
             ELSE 'NO' 
-        END AS RETIREMENT_ELIGIBLE_FLAG, 
-        (DATEDIFF(YEAR, r.birthdate, DATE '2024-08-08') - 
-            CASE WHEN DATE '2024-08-08' < DATEDIFF(YEAR, r.birthdate, DATE '2024-08-08') THEN 1 ELSE 0 END
-        ) AS AGE, 
-        CASE 
-            WHEN age >= 65 THEN '65+' 
-            WHEN age >= 55 AND age < 65 THEN '55-64' 
-            WHEN age >= 45 AND age < 55 THEN '45-54' 
-            WHEN age >= 35 AND age < 45 THEN '35-44' 
-            WHEN age >= 30 AND age < 35 THEN '30-34' 
-            WHEN age >= 25 AND age < 30 THEN '25-29' 
-            ELSE '24 and under' 
-        END AS Age_Group 
+        END AS RETIREMENT_ELIGIBLE_FLAG,
+        ((DATEDIFF(YEAR, r.BIRTHDATE, DATE'2024-08-08') 
+            - CASE WHEN DATE '2024-08-08' < DATEDIFF(YEAR, r.BIRTHDATE, DATE'2024-08-08') THEN 1 ELSE 0 END)) AS AGE,
+        CASE
+            WHEN (AGE >= 65) THEN '65+'
+            WHEN (AGE >= 55 AND AGE < 65) THEN '55-64'
+            WHEN (AGE >= 45 AND AGE < 55) THEN '45-54'
+            WHEN (AGE >= 35 AND AGE < 45) THEN '35-44'
+            WHEN (AGE >= 30 AND AGE < 35) THEN '30-34'
+            WHEN (AGE >= 25 AND AGE < 30) THEN '25-29'
+            ELSE '24 AND UNDER' 
+        END AS AGE_GROUP
     FROM 
-        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB GJ 
+        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB gj
     LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTPAYPLAN PP ON GJ.DIMPSGVTPAYPLANID = PP.DIMPSGVTPAYPLANID 
+        DATAWAREHOUSE.HRSMART_DIMPSGVTPAYPLAN pp ON gj.DIMPSGVTPAYPLANID = pp.DIMPSGVTPAYPLANID
     LEFT JOIN 
-        cte_retire r ON GJ.factpsgtjobid = R.RETIREMENTELIGIBILITYSID 
+        CTE_RETIRE r ON gj.FACTPSGVTJOBID = r.RETIREMENTELIGIBILITYSID
     WHERE 
-        '2024-06-05' BETWEEN GJ.EFFDT AND GJ.EXPDT 
-        AND PP.GVT_PAY_PLAN != '00' 
-        AND GJ.EMPL_STATUS IN ('A', 'L', 'S', 'P', 'W') 
-        AND GJ.GVT_STATUS_TYPE IN ('COM', 'COR')
+        '2024-06-05' BETWEEN gj.EFFDT AND gj.EXPDT 
+        AND pp.GVT_PAY_PLAN != '00'
+        AND gj.EMPL_STATUS IN ('A', 'L', 'S', 'P', 'W')
+        AND gj.GVT_STATUS_TYPE IN ('COM', 'COR')
 )
+
 SELECT 
     EMPLID, 
-    category, 
-    Age_Group, 
-    COUNT(DISTINCT EMPLID) AS EMPL_COUNT 
-FROM (
+    CATEGORY, 
+    AGE_GROUP, 
+    COUNT(DISTINCT EMPLID) AS EMPL_COUNT
+FROM 
+(
     SELECT 
         EMPLID, 
-        category, 
-        Age_Group 
-    FROM CTE_DETAIL WHERE RETIREMENT_ELIGIBLE_FLAG = 'YES' 
-    
-    UNION ALL 
-    
-    SELECT 
-        EMPLID, 
-        category, 
-        Age_Group 
-    FROM CTE_DETAIL WHERE RETIREMENT_ELIGIBLE_FLAG IS NULL 
-    
-    UNION ALL 
-    
-    SELECT 
-        EMPLID, 
-        'NON-ELIGIBLE' AS category, 
-        Age_Group 
-    FROM CTE_DETAIL WHERE RETIREMENT_ELIGIBLE_FLAG = 'NO' 
-    
-    UNION ALL 
-    
-    SELECT 
-        EMPLID, 
-        'TOTAL ACTIVE EMPLOYEE' AS CATEGORY, 
-        Age_Group 
+        CATEGORY, 
+        AGE_GROUP 
     FROM CTE_DETAIL
-) AS FINAL_RESULT 
+    WHERE RETIREMENT_ELIGIBLE_FLAG = 'YES'
+    
+    UNION ALL
+    
+    SELECT 
+        EMPLID, 
+        CATEGORY, 
+        AGE_GROUP 
+    FROM CTE_DETAIL
+    WHERE RETIREMENT_ELIGIBLE_FLAG IS NULL
+
+    UNION ALL
+    
+    SELECT 
+        EMPLID, 
+        'NON-ELIGIBLE' AS CATEGORY,
+        AGE_GROUP 
+    FROM CTE_DETAIL
+    WHERE RETIREMENT_ELIGIBLE_FLAG = 'NO'
+
+    UNION ALL
+    
+    SELECT 
+        EMPLID, 
+        'TOTAL ACTIVE EMPLOYEE' AS CATEGORY,
+        AGE_GROUP
+    FROM CTE_DETAIL
+)
 GROUP BY 
     EMPLID, 
-    category, 
-    Age_Group 
+    CATEGORY, 
+    AGE_GROUP
 ORDER BY 
-    category, 
-    Age_Group;
-
-
-
-
+    CATEGORY, 
+    AGE_GROUP;
