@@ -1,7 +1,6 @@
 WITH CTE_RETIRE AS (
     SELECT 
         f.factpsgvtjobid AS retirementeligibilitysid,
-        f.gvt_retire_plan,
         CASE 
             WHEN f.gvt_retire_plan = '1' THEN 'FULL CSRS'
             WHEN f.gvt_retire_plan = '2' THEN 'FICA'
@@ -19,79 +18,36 @@ WITH CTE_RETIRE AS (
             ELSE 'UNKNOWN' 
         END AS category,
         gp.birthdate,
+        -- Add additional eligibility logic here
         CASE 
-            WHEN f.gvt_retire_plan IN ('K', 'KF', 'KR', 'M', 'MF', 'MR') THEN
-                CASE
-                    WHEN DATE_PART_YEAR(gp.birthdate) < 1948 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 660)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1948 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 662)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1949 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 664)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1950 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 666)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1951 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 668)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1952 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 670)
-                    WHEN DATE_PART_YEAR(gp.birthdate) >= 1953 AND DATE_PART_YEAR(gp.birthdate) <= 1964 AND ADD_MONTHS(gp.birthdate, 672) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 672)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1965 AND ADD_MONTHS(gp.birthdate, 674) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 674)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1966 AND ADD_MONTHS(gp.birthdate, 676) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 676)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1967 AND ADD_MONTHS(gp.birthdate, 678) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 678)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1968 AND ADD_MONTHS(gp.birthdate, 680) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 680)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1969 AND ADD_MONTHS(gp.birthdate, 682) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 682)
-                    WHEN DATE_PART_YEAR(gp.birthdate) >= 1970 AND ADD_MONTHS(gp.birthdate, 684) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 684)
-                    ELSE ADD_MONTHS(e.gvt_scd_retire, 12 * 30)
-                END
-            ELSE NULL 
-        END AS "MRA 30 YEARS OF SERVICE",
-        CASE 
-            WHEN f.gvt_retire_plan IN ('K', 'KF', 'KR', 'M', 'MF', 'MR') THEN
-                CASE
-                    WHEN DATE_PART_YEAR(gp.birthdate) < 1948 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(e.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 660)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1948 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(e.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 662)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1949 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(e.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 664)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1950 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(e.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 666)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1951 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(e.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 668)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1952 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(e.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 670)
-                    WHEN DATE_PART_YEAR(gp.birthdate) >= 1953 AND DATE_PART_YEAR(gp.birthdate) <= 1964 AND ADD_MONTHS(gp.birthdate, 672) > ADD_MONTHS(e.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 672)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1965 AND ADD_MONTHS(gp.birthdate, 674) > ADD_MONTHS(e.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 674)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1966 AND ADD_MONTHS(gp.birthdate, 676) > ADD_MONTHS(e.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 676)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1967 AND ADD_MONTHS(gp.birthdate, 678) > ADD_MONTHS(e.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 678)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1968 AND ADD_MONTHS(gp.birthdate, 680) > ADD_MONTHS(e.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 680)
-                    WHEN DATE_PART_YEAR(gp.birthdate) = 1969 AND ADD_MONTHS(gp.birthdate, 682) > ADD_MONTHS(e.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 682)
-                    WHEN DATE_PART_YEAR(gp.birthdate) >= 1970 AND ADD_MONTHS(gp.birthdate, 684) > ADD_MONTHS(e.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 684)
-                    ELSE ADD_MONTHS(e.gvt_scd_retire, 12 * 10)
-                END
-            ELSE NULL 
-        END AS "MRA 10-29 YEARS OF SERVICE",
-        CASE 
-            WHEN f.gvt_retire_plan IN ('K', 'KF', 'KR', '1', 'C', 'R', 'M', 'MF', 'MR', 'E') THEN
+            WHEN f.gvt_retire_plan IN ('K', 'KF', 'KR', 'M', 'MF', 'MR') THEN 
                 CASE 
-                    WHEN ADD_MONTHS(e.gvt_scd_retire, 12 * 5) >= ADD_MONTHS(gp.birthdate, 12 * 62) THEN ADD_MONTHS(e.gvt_scd_retire, 12 * 5)
-                    ELSE ADD_MONTHS(gp.birthdate, 12 * 62)
+                    WHEN DATEADD(YEAR, 30, gp.birthdate) < GETDATE() THEN 'Eligible for MRA 30'
+                    ELSE 'Not Eligible for MRA 30'
                 END
-            ELSE NULL 
-        END AS first_eligibility_date 
+            ELSE 'Not Applicable'
+        END AS Eligibility_MRA_30
     FROM 
-        "DATAWAREHOUSE"."HRSMART_FACTPSGVTJOB" f
-    LEFT JOIN "DATAWAREHOUSE"."HRSMART_EMPLOYEEJOB" e 
-        ON f.emplid = e.emplid
-    LEFT JOIN "DATAWAREHOUSE"."HRSMART_EMPLOYEEPERSONALDATA" gp 
-        ON f.emplid = gp.emplid 
+        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB f
+    LEFT JOIN DATAWAREHOUSE.HRSMART_DIMPSGVTEMPLOYMENT e ON f.DIMPSGVTEMPLOYMENTID = e.DIMPSGVTEMPLOYMENTID
+    LEFT JOIN DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA gp ON f.DIMPSGVTPERSDATAID = gp.DIMPSGVTPERSDATAID
 ),
+
 CTE_DETAIL AS (
     SELECT
         GJ.EMPLID,
         GJ.EMPL_RCD,
         GJ.EFFDT,
         R.CATEGORY,
-        R.FIRST_ELIGIBILITY_DATE,
-        R.GVT_RETIRE_PLAN,
+        R.Eligibility_MRA_30,
+        R.BIRTHDATE,
         CASE 
             WHEN FIRST_ELIGIBILITY_DATE IS NULL THEN NULL 
             WHEN FIRST_ELIGIBILITY_DATE <= DATE '2024-08-08' THEN 'YES' 
             ELSE 'NO' 
         END AS RETIREMENT_ELIGIBLE_FLAG,
-        (DATEDIFF(YEAR, R.BIRTHDATE, DATE '2024-08-08') - 
-         CASE 
-             WHEN DATE '2024-08-08' < ADD_MONTHS(R.BIRTHDATE, 12 * 1) THEN 1 
-             ELSE 0 
-         END) AS AGE,
+        ((DATEDIFF(YEAR, R.BIRTHDATE, DATE'2024-08-08') - 
+        CASE WHEN DATE '2024-08-08' < DATEDIFF(YEAR, R.BIRTHDATE, DATE'2024-08-08') THEN 1 ELSE 0 END)) AS AGE,
         CASE
             WHEN (AGE >= 65) THEN '65+'
             WHEN (AGE >= 55 AND AGE < 65) THEN '55-64'
@@ -102,49 +58,40 @@ CTE_DETAIL AS (
             ELSE '24 AND UNDER' 
         END AS AGE_GROUP
     FROM 
-        "DATAWAREHOUSE"."HRSMART_FACTPSGVTJOB" GJ
-    LEFT JOIN "DATAWAREHOUSE"."HRSMART_DIMPSGVTPAYPLAN" PP 
-        ON GJ.DIMPSGVTPAYPLANID = PP.DIMPSGVTPAYPLANID
-    LEFT JOIN CTE_RETIRE R 
-        ON GJ.FACTPSGVTJOBID = R.RETIREMENTELIGIBILITYSID
+        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB GJ
+    LEFT JOIN DATAWAREHOUSE.HRSMART_DIMPSGVTPAYPLAN PP ON GJ.DIMPSGVTPAYPLANID = PP.DIMPSGVTPAYPLANID
+    LEFT JOIN CTE_RETIRE R ON GJ.FACTPSGVTJOBID = R.RETIREMENTELIGIBILITYSID
     WHERE 
         '2024-06-05' BETWEEN GJ.EFFDT AND GJ.EXPDT 
         AND PP.GVT_PAY_PLAN != '00'
-        AND GJ.EMPL_STATUS IN ('A', 'L', 'S', 'P', 'W')
-        AND GJ.GVT_STATUS_TYPE IN ('COM', 'COR')
+        AND GJ.EMPL_STATUS IN('A', 'L', 'S', 'P', 'W')
+        AND GJ.GVT_STATUS_TYPE IN('COM', 'COR')
 )
 
-SELECT EMPLID, CATEGORY, AGE_GROUP
+SELECT 
+    CATEGORY, 
+    AGE_GROUP, 
+    EMPLID 
 FROM (
-    SELECT EMPLID, CATEGORY, AGE_GROUP
+    SELECT CATEGORY, AGE_GROUP, EMPLID
     FROM CTE_DETAIL
     WHERE RETIREMENT_ELIGIBLE_FLAG = 'YES'
-) AS ELIGIBLE
+    
+    UNION ALL
 
-UNION ALL
-
-SELECT EMPLID, CATEGORY, AGE_GROUP
-FROM (
-    SELECT EMPLID, CATEGORY, AGE_GROUP
+    SELECT CATEGORY, AGE_GROUP, EMPLID
     FROM CTE_DETAIL
     WHERE RETIREMENT_ELIGIBLE_FLAG IS NULL
-) AS NULL_ELIGIBLE
+    
+    UNION ALL
 
-UNION ALL
-
-SELECT EMPLID, 'NON-ELIGIBLE' AS CATEGORY, AGE_GROUP
-FROM (
-    SELECT EMPLID, AGE_GROUP
+    SELECT 'NON-ELIGIBLE' AS CATEGORY, AGE_GROUP, EMPLID
     FROM CTE_DETAIL
-    WHERE RETIREMENT_ELIGIBLE_FLAG = 'NO'
-) AS NON_ELIGIBLE
+    WHERE RETIREMENT_ELIGIBLE_FLAG ='NO'
+    
+    UNION ALL
 
-UNION ALL
-
-SELECT EMPLID, 'TOTAL ACTIVE EMPLOYEE' AS CATEGORY, AGE_GROUP
-FROM (
-    SELECT EMPLID, AGE_GROUP
+    SELECT 'TOTAL ACTIVE EMPLOYEE' AS CATEGORY, AGE_GROUP, EMPLID
     FROM CTE_DETAIL
-) AS TOTAL_ACTIVE
-
-ORDER BY CATEGORY, AGE_GROUP;
+) AS UNION_ALL_RESULT
+ORDER BY CATEGORY, AGE_GROUP, EMPLID;
