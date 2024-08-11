@@ -19,13 +19,22 @@ WITH CTE_RETIRE AS (
             ELSE 'UNKNOWN'
         END AS category,
         gp.birthdate,
-        -- Additional logic for eligibility
         CASE 
             WHEN f.gvt_retire_plan IN ('K','KF','KR','M','MF','MR') THEN
-                -- Eligibility calculations
                 CASE
                     WHEN DATE_PART('YEAR', gp.birthdate) < 1948 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,660)
-                    -- Additional cases here...
+                    WHEN DATE_PART('YEAR', gp.birthdate) = 1948 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,662)
+                    WHEN DATE_PART('YEAR', gp.birthdate) = 1949 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,664)
+                    WHEN DATE_PART('YEAR', gp.birthdate) = 1950 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,666)
+                    WHEN DATE_PART('YEAR', gp.birthdate) = 1951 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,668)
+                    WHEN DATE_PART('YEAR', gp.birthdate) = 1952 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,670)
+                    WHEN DATE_PART('YEAR', gp.birthdate) >= 1953 AND DATE_PART('YEAR', gp.birthdate) <= 1964 AND ADD_MONTHS(gp.birthdate,672) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,672)
+                    WHEN DATE_PART('YEAR', gp.birthdate) = 1965 AND ADD_MONTHS(gp.birthdate,674) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,674)
+                    WHEN DATE_PART('YEAR', gp.birthdate) = 1966 AND ADD_MONTHS(gp.birthdate,676) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,676)
+                    WHEN DATE_PART('YEAR', gp.birthdate) = 1967 AND ADD_MONTHS(gp.birthdate,678) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,678)
+                    WHEN DATE_PART('YEAR', gp.birthdate) = 1968 AND ADD_MONTHS(gp.birthdate,680) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,680)
+                    WHEN DATE_PART('YEAR', gp.birthdate) = 1969 AND ADD_MONTHS(gp.birthdate,682) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,682)
+                    WHEN DATE_PART('YEAR', gp.birthdate) >= 1970 AND ADD_MONTHS(gp.birthdate,684) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,684)
                     ELSE ADD_MONTHS(e.gvt_scd_retire,12*30)
                 END
             ELSE NULL 
@@ -76,7 +85,7 @@ SELECT
     category,
     age_group,
     COUNT(DISTINCT emplid) AS employee_count,
-    STRING_AGG(DISTINCT emplid, ', ') AS emplids
+    STRING_AGG(DISTINCT emplid::TEXT, ', ') AS emplids
 FROM 
     CTE_DETAIL
 WHERE 
@@ -90,7 +99,7 @@ SELECT
     category,
     age_group,
     COUNT(DISTINCT emplid) AS employee_count,
-    STRING_AGG(DISTINCT emplid, ', ') AS emplids
+    STRING_AGG(DISTINCT emplid::TEXT, ', ') AS emplids
 FROM 
     CTE_DETAIL
 WHERE 
@@ -104,7 +113,7 @@ SELECT
     'NON-ELIGIBLE' AS category,
     age_group,
     COUNT(DISTINCT emplid) AS employee_count,
-    STRING_AGG(DISTINCT emplid, ', ') AS emplids
+    STRING_AGG(DISTINCT emplid::TEXT, ', ') AS emplids
 FROM 
     CTE_DETAIL
 WHERE 
@@ -118,7 +127,7 @@ SELECT
     'TOTAL ACTIVE EMPLOYEE' AS category,
     age_group,
     COUNT(DISTINCT emplid) AS employee_count,
-    STRING_AGG(DISTINCT emplid, ', ') AS emplids
+    STRING_AGG(DISTINCT emplid::TEXT, ', ') AS emplids
 FROM 
     CTE_DETAIL
 GROUP BY 
