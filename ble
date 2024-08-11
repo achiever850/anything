@@ -22,7 +22,6 @@ WITH CTE_RETIRE AS (
         CASE 
             WHEN f.gvt_retire_plan IN ('K','KF','KR','M','MF','MR') THEN
                 CASE
-                    -- Logic for MRA 30 YEARS OF SERVICE
                     WHEN DATE_PART('YEAR', gp.birthdate) < 1948 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,660)
                     WHEN DATE_PART('YEAR', gp.birthdate) = 1948 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,662)
                     WHEN DATE_PART('YEAR', gp.birthdate) = 1949 AND ADD_MONTHS(gp.birthdate,662) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,664)
@@ -40,10 +39,10 @@ WITH CTE_RETIRE AS (
         DATAWAREHOUSE.HRSMART_FACTPSGVTJOB f
     LEFT JOIN 
         DATAWAREHOUSE.HRSMART_DIMPSGVTEMPLOYMENT e 
-        ON f.dimpsgvtemploymentid = e.dimpsgvtemploymentid
+        ON f.dimpsgvtEmploymentId = e.dimpsgvtEmploymentId
     LEFT JOIN 
         DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA gp 
-        ON f.dimpsgvtpersdataid = gp.dimpsgvtpersdataid
+        ON f.dimpsgvtPersDataId = gp.dimpsgvtPersDataId
 ),
 CTE_DETAIL AS (
     SELECT
@@ -72,7 +71,7 @@ CTE_DETAIL AS (
         DATAWAREHOUSE.HRSMART_FACTPSGVTJOB gj
     LEFT JOIN 
         DATAWAREHOUSE.HRSMART_DIMPSGVTPAYPLAN pp 
-        ON gj.dimpsgvtpayplanid = pp.dimpsgvtpayplanid
+        ON gj.dimpsgvtPayPlanId = pp.dimpsgvtPayPlanId
     LEFT JOIN 
         CTE_RETIRE r 
         ON gj.factpsgvtjobid = r.retermenteligibilitysid
@@ -92,4 +91,5 @@ FROM
     CTE_DETAIL
 WHERE 
     CATEGORY = 'UNKNOWN'
-    AND AGE_GROUP IN ('30-34', '35-44', '45-44', '55-64');
+    AND AGE_GROUP IN ('30-34', '35-44', '45-54', '55-64');
+
