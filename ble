@@ -23,20 +23,20 @@ WITH CTE_RETIRE AS (
         CASE 
             WHEN f.gvt_retire_plan IN ('K', 'KF', 'KR', 'M', 'MF', 'MR') THEN
                 CASE
-                    WHEN DATE_PART(YEAR, gp.birthdate) < 1948 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 660) 
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1948 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 662)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1949 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 664)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1950 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 666)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1951 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 668)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1952 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 670)
-                    WHEN DATE_PART(YEAR, gp.birthdate) >= 1953 AND DATE_PART(YEAR, gp.birthdate) <= 1964 AND ADD_MONTHS(gp.birthdate, 672) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 672)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1965 AND ADD_MONTHS(gp.birthdate, 674) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 674)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1966 AND ADD_MONTHS(gp.birthdate, 676) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 676)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1967 AND ADD_MONTHS(gp.birthdate, 678) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 678)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1968 AND ADD_MONTHS(gp.birthdate, 680) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 680)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1969 AND ADD_MONTHS(gp.birthdate, 682) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 682)
-                    WHEN DATE_PART(YEAR, gp.birthdate) >= 1970 AND ADD_MONTHS(gp.birthdate, 684) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 684)	
-                    ELSE ADD_MONTHS(E.gvt_scd_retire, 12 * 30)
+                    WHEN DATE_PART(YEAR, gp.birthdate) < 1948 AND DATEADD(MONTH, 660, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 660, gp.birthdate) 
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1948 AND DATEADD(MONTH, 660, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 662, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1949 AND DATEADD(MONTH, 660, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 664, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1950 AND DATEADD(MONTH, 660, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 666, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1951 AND DATEADD(MONTH, 660, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 668, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1952 AND DATEADD(MONTH, 660, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 670, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) >= 1953 AND DATE_PART(YEAR, gp.birthdate) <= 1964 AND DATEADD(MONTH, 672, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 672, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1965 AND DATEADD(MONTH, 674, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 674, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1966 AND DATEADD(MONTH, 676, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 676, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1967 AND DATEADD(MONTH, 678, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 678, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1968 AND DATEADD(MONTH, 680, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 680, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1969 AND DATEADD(MONTH, 682, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 682, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) >= 1970 AND DATEADD(MONTH, 684, gp.birthdate) > DATEADD(MONTH, 360, E.gvt_scd_retire) THEN DATEADD(MONTH, 684, gp.birthdate)	
+                    ELSE DATEADD(MONTH, 360, E.gvt_scd_retire)
                 END
             ELSE NULL 
         END AS "MRA 30 YEARS OF SERVICE",
@@ -44,20 +44,20 @@ WITH CTE_RETIRE AS (
         CASE 
             WHEN f.gvt_retire_plan IN ('K', 'KF', 'KR', 'M', 'MF', 'MR') THEN
                 CASE
-                    WHEN DATE_PART(YEAR, gp.birthdate) < 1948 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 660) 
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1948 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 662)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1949 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 664)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1950 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 666)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1951 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 668)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1952 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 670)
-                    WHEN DATE_PART(YEAR, gp.birthdate) >= 1953 AND DATE_PART(YEAR, gp.birthdate) <= 1964 AND ADD_MONTHS(gp.birthdate, 672) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 672)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1965 AND ADD_MONTHS(gp.birthdate, 674) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 674)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1966 AND ADD_MONTHS(gp.birthdate, 676) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 676)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1967 AND ADD_MONTHS(gp.birthdate, 678) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 678)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1968 AND ADD_MONTHS(gp.birthdate, 680) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 680)
-                    WHEN DATE_PART(YEAR, gp.birthdate) = 1969 AND ADD_MONTHS(gp.birthdate, 682) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 682)
-                    WHEN DATE_PART(YEAR, gp.birthdate) >= 1970 AND ADD_MONTHS(gp.birthdate, 684) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 684)	
-                    ELSE ADD_MONTHS(E.gvt_scd_retire, 12 * 10)
+                    WHEN DATE_PART(YEAR, gp.birthdate) < 1948 AND DATEADD(MONTH, 660, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 660, gp.birthdate) 
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1948 AND DATEADD(MONTH, 660, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 662, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1949 AND DATEADD(MONTH, 660, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 664, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1950 AND DATEADD(MONTH, 660, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 666, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1951 AND DATEADD(MONTH, 660, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 668, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1952 AND DATEADD(MONTH, 660, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 670, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) >= 1953 AND DATE_PART(YEAR, gp.birthdate) <= 1964 AND DATEADD(MONTH, 672, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 672, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1965 AND DATEADD(MONTH, 674, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 674, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1966 AND DATEADD(MONTH, 676, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 676, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1967 AND DATEADD(MONTH, 678, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 678, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1968 AND DATEADD(MONTH, 680, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 680, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1969 AND DATEADD(MONTH, 682, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 682, gp.birthdate)
+                    WHEN DATE_PART(YEAR, gp.birthdate) >= 1970 AND DATEADD(MONTH, 684, gp.birthdate) > DATEADD(MONTH, 120, E.gvt_scd_retire) THEN DATEADD(MONTH, 684, gp.birthdate)	
+                    ELSE DATEADD(MONTH, 120, E.gvt_scd_retire)
                 END
             ELSE NULL 
         END AS "MRA 10-29 YEARS OF SERVICE",
@@ -112,15 +112,14 @@ CTE_DETAIL AS (
             ) <= DATE '2024-08-08' THEN 'YES' 
             ELSE 'NO' 
         END AS RETIREMENT_ELIGIBLE_FLAG,
-        (DATEDIFF(YEAR, gp.birthdate, DATE '2024-08-08') - 
-            CASE WHEN DATE '2024-08-08' < DATEDIFF(YEAR, gp.birthdate, DATE '2024-08-08') THEN 1 ELSE 0 END) AS AGE,
+        DATEDIFF(YEAR, gp.birthdate, DATE '2024-08-08') AS AGE,
         CASE
-            WHEN AGE >= 65 THEN '65+'
-            WHEN AGE >= 55 THEN '55-64'
-            WHEN AGE >= 45 THEN '45-54'
-            WHEN AGE >= 35 THEN '35-44'
-            WHEN AGE >= 30 THEN '30-34'
-            WHEN AGE >= 25 THEN '25-29'
+            WHEN DATEDIFF(YEAR, gp.birthdate, DATE '2024-08-08') >= 65 THEN '65+'
+            WHEN DATEDIFF(YEAR, gp.birthdate, DATE '2024-08-08') >= 55 THEN '55-64'
+            WHEN DATEDIFF(YEAR, gp.birthdate, DATE '2024-08-08') >= 45 THEN '45-54'
+            WHEN DATEDIFF(YEAR, gp.birthdate, DATE '2024-08-08') >= 35 THEN '35-44'
+            WHEN DATEDIFF(YEAR, gp.birthdate, DATE '2024-08-08') >= 30 THEN '30-34'
+            WHEN DATEDIFF(YEAR, gp.birthdate, DATE '2024-08-08') >= 25 THEN '25-29'
             ELSE '24 AND UNDER' 
         END AS AGE_GROUP
     FROM 
@@ -141,7 +140,7 @@ CTE_DETAIL AS (
 SELECT 
     CATEGORY, 
     AGE_GROUP, 
-    STRING_AGG(EMPLID::TEXT, ', ') AS EMPLOYEE_IDS
+    LISTAGG(EMPLID, ', ') AS EMPLOYEE_IDS
 FROM 
     CTE_DETAIL
 WHERE 
@@ -154,7 +153,7 @@ UNION ALL
 SELECT 
     CATEGORY, 
     AGE_GROUP, 
-    STRING_AGG(EMPLID::TEXT, ', ') AS EMPLOYEE_IDS 
+    LISTAGG(EMPLID, ', ') AS EMPLOYEE_IDS 
 FROM 
     CTE_DETAIL
 WHERE  
@@ -167,7 +166,7 @@ UNION ALL
 SELECT 
     'NON-ELIGIBLE' AS CATEGORY,
     AGE_GROUP, 
-    STRING_AGG(EMPLID::TEXT, ', ') AS EMPLOYEE_IDS 
+    LISTAGG(EMPLID, ', ') AS EMPLOYEE_IDS 
 FROM 
     CTE_DETAIL
 WHERE 
@@ -180,7 +179,7 @@ UNION ALL
 SELECT 
     'TOTAL ACTIVE EMPLOYEE' AS CATEGORY,
     AGE_GROUP,
-    STRING_AGG(EMPLID::TEXT, ', ') AS EMPLOYEE_IDS 
+    LISTAGG(EMPLID, ', ') AS EMPLOYEE_IDS 
 FROM 
     CTE_DETAIL
 GROUP BY 
