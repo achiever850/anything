@@ -19,21 +19,20 @@ WITH CTE_RETIRE AS (
         END AS category,
         gp.birthdate,
         E.GVT_SCD_RETIRE,
-
         -- Eligibility calculations based on age and years of service
         CASE 
-            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 62 AND 
-                 E.GVT_SCD_RETIRE <= CURRENT_DATE THEN CURRENT_DATE
-            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 55 AND 
-                 E.GVT_SCD_RETIRE <= CURRENT_DATE THEN CURRENT_DATE
-            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 50 AND 
-                 E.GVT_SCD_RETIRE <= CURRENT_DATE AND f.gvt_retire_plan IN ('M', 'MR', 'MF', '6', 'E', 'T') THEN CURRENT_DATE
+            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 62 
+                 AND E.GVT_SCD_RETIRE <= CURRENT_DATE THEN CURRENT_DATE
+            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 55 
+                 AND E.GVT_SCD_RETIRE <= CURRENT_DATE THEN CURRENT_DATE
+            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 50 
+                 AND E.GVT_SCD_RETIRE <= CURRENT_DATE AND f.gvt_retire_plan IN ('M', 'MR', 'MF', '6', 'E', 'T') THEN CURRENT_DATE
             ELSE NULL
         END AS first_eligibility_date
     FROM 
         DATAWAREHOUSE.HRSMART_FACTPSGVTJOB F
     LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTEMPLOYMENT E ON F.DIMPSGVTPAYPLANID = E.DIMPSGVTPAYPLANID -- Ensure this is the correct join
+        DATAWAREHOUSE.HRSMART_DIMPSGVTEMPLOYMENT E ON F.DIMPSGVTPAYPLANID = E.DIMPSGVTPAYPLANID -- Ensure this is correct
     LEFT JOIN 
         DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA GP ON F.DIMPSGVTPERSDATAID = GP.DIMPSGVTPERSDATAID
 ),
@@ -116,4 +115,15 @@ CTE_AGGREGATED AS (
     UNION ALL
 
     SELECT 
-        'TOTAL ACTIVE EMPLOYEE'
+        'TOTAL ACTIVE EMPLOYEE' AS CATEGORY,
+        AGE_GROUP,
+        COUNT(DISTINCT EMPLID) AS employee_count,
+        LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
+    FROM 
+        CTE_DETAIL
+    GROUP BY 
+        AGE_GROUP
+)
+
+SELECT * FROM CTE_AGGREGATED
+ORDER BY CATEGORY, AGE_GROUP;
