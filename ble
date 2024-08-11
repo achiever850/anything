@@ -19,8 +19,66 @@ WITH CTE_RETIRE AS (
             ELSE 'UNKNOWN' 
         END AS category,
         gp.birthdate,
-        -- Additional eligibility date calculations can go here
-        -- (Add the eligibility calculations as needed)
+
+        CASE 
+            WHEN f.gvt_retire_plan IN ('K', 'KF', 'KR', 'M', 'MF', 'MR') THEN
+                CASE
+                    WHEN DATE_PART(YEAR, gp.birthdate) < 1948 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 660) 
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1948 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 662)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1949 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 664)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1950 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 666)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1951 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 668)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1952 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 670)
+                    WHEN DATE_PART(YEAR, gp.birthdate) >= 1953 AND DATE_PART(YEAR, gp.birthdate) <= 1964 AND ADD_MONTHS(gp.birthdate, 672) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 672)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1965 AND ADD_MONTHS(gp.birthdate, 674) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 674)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1966 AND ADD_MONTHS(gp.birthdate, 676) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 676)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1967 AND ADD_MONTHS(gp.birthdate, 678) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 678)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1968 AND ADD_MONTHS(gp.birthdate, 680) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 680)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1969 AND ADD_MONTHS(gp.birthdate, 682) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 682)
+                    WHEN DATE_PART(YEAR, gp.birthdate) >= 1970 AND ADD_MONTHS(gp.birthdate, 684) > ADD_MONTHS(E.gvt_scd_retire, 12 * 30) THEN ADD_MONTHS(gp.birthdate, 684)	
+                    ELSE ADD_MONTHS(E.gvt_scd_retire, 12 * 30)
+                END
+            ELSE NULL 
+        END AS "MRA 30 YEARS OF SERVICE",
+
+        CASE 
+            WHEN f.gvt_retire_plan IN ('K', 'KF', 'KR', 'M', 'MF', 'MR') THEN
+                CASE
+                    WHEN DATE_PART(YEAR, gp.birthdate) < 1948 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 660) 
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1948 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 662)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1949 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 664)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1950 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 666)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1951 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 668)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1952 AND ADD_MONTHS(gp.birthdate, 660) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 670)
+                    WHEN DATE_PART(YEAR, gp.birthdate) >= 1953 AND DATE_PART(YEAR, gp.birthdate) <= 1964 AND ADD_MONTHS(gp.birthdate, 672) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 672)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1965 AND ADD_MONTHS(gp.birthdate, 674) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 674)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1966 AND ADD_MONTHS(gp.birthdate, 676) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 676)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1967 AND ADD_MONTHS(gp.birthdate, 678) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 678)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1968 AND ADD_MONTHS(gp.birthdate, 680) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 680)
+                    WHEN DATE_PART(YEAR, gp.birthdate) = 1969 AND ADD_MONTHS(gp.birthdate, 682) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 682)
+                    WHEN DATE_PART(YEAR, gp.birthdate) >= 1970 AND ADD_MONTHS(gp.birthdate, 684) > ADD_MONTHS(E.gvt_scd_retire, 12 * 10) THEN ADD_MONTHS(gp.birthdate, 684)	
+                    ELSE ADD_MONTHS(E.gvt_scd_retire, 12 * 10)
+                END
+            ELSE NULL 
+        END AS "MRA 10-29 YEARS OF SERVICE",
+
+        CASE 
+            WHEN f.gvt_retire_plan IN ('K', 'KF', 'KR', '1', 'C', 'R', 'M', 'MF', 'MR', 'E') THEN
+                CASE 
+                    WHEN ADD_MONTHS(E.gvt_scd_retire, 12 * 5) >= ADD_MONTHS(gp.birthdate, 12 * 62) THEN ADD_MONTHS(E.gvt_scd_retire, 12 * 5) 
+                    ELSE ADD_MONTHS(gp.birthdate, 12 * 62) 
+                END 
+            ELSE NULL 
+        END AS "AGE 62+ AND 5 YEARS OF SERVICE",
+
+        CASE 
+            WHEN f.gvt_retire_plan IN ('K', 'KF', 'KR', '1', 'C', 'R', 'M', 'MF', 'MR', 'E') THEN
+                CASE 
+                    WHEN ADD_MONTHS(E.gvt_scd_retire, 12 * 5) >= ADD_MONTHS(gp.birthdate, 12 * 60) THEN ADD_MONTHS(E.gvt_scd_retire, 12 * 5) 
+                    ELSE ADD_MONTHS(gp.birthdate, 12 * 60) 
+                END 
+            ELSE NULL 
+        END AS "AGE 60+ AND 20 YEARS OF SERVICE"
     FROM 
         DATAWAREHOUSE.HRSMART_FACTPSGVTJOB F
     LEFT JOIN 
