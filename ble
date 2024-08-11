@@ -75,8 +75,7 @@ CTE_AGGREGATED AS (
     SELECT 
         CATEGORY,
         AGE_GROUP,
-        COUNT(DISTINCT EMPLID) AS employee_count,
-        LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
+        COUNT(DISTINCT EMPLID) AS employee_count
     FROM 
         CTE_DETAIL
     WHERE 
@@ -89,8 +88,7 @@ CTE_AGGREGATED AS (
     SELECT 
         CATEGORY,
         AGE_GROUP,
-        COUNT(DISTINCT EMPLID) AS employee_count,
-        LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
+        COUNT(DISTINCT EMPLID) AS employee_count
     FROM 
         CTE_DETAIL
     WHERE 
@@ -103,8 +101,7 @@ CTE_AGGREGATED AS (
     SELECT 
         'NON-ELIGIBLE' AS CATEGORY,
         AGE_GROUP,
-        COUNT(DISTINCT EMPLID) AS employee_count,
-        LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
+        COUNT(DISTINCT EMPLID) AS employee_count
     FROM 
         CTE_DETAIL
     WHERE 
@@ -117,13 +114,32 @@ CTE_AGGREGATED AS (
     SELECT 
         'TOTAL ACTIVE EMPLOYEE' AS CATEGORY,
         AGE_GROUP,
-        COUNT(DISTINCT EMPLID) AS employee_count,
-        LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
+        COUNT(DISTINCT EMPLID) AS employee_count
     FROM 
         CTE_DETAIL
     GROUP BY 
         AGE_GROUP
+),
+
+CTE_EMPLOYEE_IDS AS (
+    SELECT 
+        CATEGORY,
+        AGE_GROUP,
+        LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
+    FROM 
+        CTE_DETAIL
+    GROUP BY 
+        CATEGORY, AGE_GROUP
 )
 
-SELECT * FROM CTE_AGGREGATED
-ORDER BY CATEGORY, AGE_GROUP;
+SELECT 
+    A.CATEGORY,
+    A.AGE_GROUP,
+    A.employee_count,
+    B.employee_ids
+FROM 
+    CTE_AGGREGATED A
+LEFT JOIN 
+    CTE_EMPLOYEE_IDS B ON A.CATEGORY = B.CATEGORY AND A.AGE_GROUP = B.AGE_GROUP
+ORDER BY 
+    A.CATEGORY, A.AGE_GROUP;
