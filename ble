@@ -91,14 +91,29 @@ CTE_DETAIL AS (
     SELECT
         GJ.EMPLID,
         R.CATEGORY,
-        R.FIRST_ELIGIBILITY_DATE,
+        GREATEST(
+            R."MRA 30 YEARS OF SERVICE", 
+            R."MRA 10-29 YEARS OF SERVICE", 
+            R."AGE 62+ AND 5 YEARS OF SERVICE", 
+            R."AGE 60+ AND 20 YEARS OF SERVICE"
+        ) AS FIRST_ELIGIBILITY_DATE,
         CASE 
-            WHEN FIRST_ELIGIBILITY_DATE IS NULL THEN NULL 
-            WHEN FIRST_ELIGIBILITY_DATE <= DATE '2024-08-08' THEN 'YES' 
+            WHEN GREATEST(
+                R."MRA 30 YEARS OF SERVICE", 
+                R."MRA 10-29 YEARS OF SERVICE", 
+                R."AGE 62+ AND 5 YEARS OF SERVICE", 
+                R."AGE 60+ AND 20 YEARS OF SERVICE"
+            ) IS NULL THEN NULL 
+            WHEN GREATEST(
+                R."MRA 30 YEARS OF SERVICE", 
+                R."MRA 10-29 YEARS OF SERVICE", 
+                R."AGE 62+ AND 5 YEARS OF SERVICE", 
+                R."AGE 60+ AND 20 YEARS OF SERVICE"
+            ) <= DATE '2024-08-08' THEN 'YES' 
             ELSE 'NO' 
         END AS RETIREMENT_ELIGIBLE_FLAG,
-        (DATEDIFF(YEAR, R.BIRTHDATE, DATE '2024-08-08') - 
-            CASE WHEN DATE '2024-08-08' < DATEDIFF(YEAR, R.BIRTHDATE, DATE '2024-08-08') THEN 1 ELSE 0 END) AS AGE,
+        (DATEDIFF(YEAR, gp.birthdate, DATE '2024-08-08') - 
+            CASE WHEN DATE '2024-08-08' < DATEDIFF(YEAR, gp.birthdate, DATE '2024-08-08') THEN 1 ELSE 0 END) AS AGE,
         CASE
             WHEN AGE >= 65 THEN '65+'
             WHEN AGE >= 55 THEN '55-64'
