@@ -74,7 +74,7 @@ WITH CTE_RETIRE AS (
         CASE 
             WHEN f.gvt_retire_plan IN ('K', 'KF', 'KR', '1', 'C', 'R', 'M', 'MF', 'MR', 'E') THEN
                 CASE 
-                    WHEN ADD_MONTHS(E.gvt_scd_retire, 12 * 5) >= ADD_MONTHS(gp.birthdate, 12 * 60) THEN ADD_MONTHS(E.gvt_scd_retire, 12 * 5) 
+                    WHEN ADD_MONTHS(E.gvt_scd_retire, 12 * 20) >= ADD_MONTHS(gp.birthdate, 12 * 60) THEN ADD_MONTHS(E.gvt_scd_retire, 12 * 20) 
                     ELSE ADD_MONTHS(gp.birthdate, 12 * 60) 
                 END 
             ELSE NULL 
@@ -129,6 +129,8 @@ CTE_DETAIL AS (
         DATAWAREHOUSE.HRSMART_DIMPSGVTPAYPLAN PP ON GJ.DIMPSGVTPAYPLANID = PP.DIMPSGVTPAYPLANID
     LEFT JOIN 
         CTE_RETIRE R ON GJ.FACTPSGVTJOBID = R.RETIREMENTELIGIBILITYSID
+    LEFT JOIN 
+        DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA GP ON GJ.DIMPSGVTPERSDATAID = GP.DIMPSGVTPERSDATAID
     WHERE 
         '2024-06-05' BETWEEN GJ.EFFDT AND GJ.EXPDT 
         AND PP.GVT_PAY_PLAN != '00'
