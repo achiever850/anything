@@ -1,27 +1,45 @@
-WITH cte_detail AS (
+WITH CTE_RETIRE AS (
     SELECT 
-        EMPLID,
-        DOB, -- Date of Birth
-        Service_Years, 
-        (CURRENT_DATE - DOB) / 365 AS Age, -- Calculate age based on DOB
-        CASE 
-            WHEN (CURRENT_DATE - DOB) / 365 >= 55 AND Service_Years >= 30 THEN 'YES'
-            ELSE 'NO'
-        END AS Retirement_Eligible_Flag
+        f.factpsgvtjobid AS retirementeligibilitysid,
+        f.gvt_retire_plan,
+        CASE f.gvt_retire_plan
+            WHEN '1' THEN 'FULL CSRS'
+            WHEN '2' THEN 'FICA'
+            WHEN '4' THEN 'NONE'
+            WHEN '5' THEN 'NAF'
+            WHEN '6' THEN 'CSRS-SPEC'
+            WHEN 'C' THEN 'CSRS-OFFSET'
+            WHEN 'E' THEN 'CSRS-OFFSET-SPEC'
+            WHEN 'K' THEN 'FERS'
+            WHEN 'KR' THEN 'FERS-RAE'
+            WHEN 'KF' THEN 'FERS-FRAE'
+            WHEN 'MF' THEN 'FERS-SPEC'
+            WHEN 'R' THEN 'FICA AND FULL CSRS'
+            WHEN 'T' THEN 'FICA AND FULL CSRS SPEC'
+            ELSE 'UNKNOWN'
+        END AS category
     FROM 
-        employees -- Replace with your actual employee table
+        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB f
+),
+CTE_DETAIL AS (
+    SELECT
+        GJ.EMPLID,
+        R.category,
+        R.gvt_retire_plan
+    FROM 
+        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB GJ
+    LEFT JOIN 
+        CTE_RETIRE R ON GJ.factpsgvtjobid = R.retirementeligibilitysid
     WHERE 
-        active = 'Y' -- Assuming there is an 'active' flag
+        '2024-06-05' BETWEEN GJ.EFFDT AND GJ.EXPDT 
+        AND GJ.EMPL_STATUS IN ('A', 'L', 'S', 'P', 'W')
+        AND GJ.GVT_STATUS_TYPE IN ('COM', 'COR')
 )
-
 SELECT 
-    EMPLID, 
-    COUNT(DISTINCT EMPLID) AS Employee_Count
+    EMPLID,
+    gvt_retire_plan,
+    category
 FROM 
-    cte_detail
+    CTE_DETAIL
 WHERE 
-    Retirement_Eligible_Flag = 'YES'
-GROUP BY 
-    EMPLID
-ORDER BY 
-    EMPLID;
+    category = 'UNKNOWN';
