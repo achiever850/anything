@@ -1,5 +1,21 @@
+WITH cte_detail AS (
+    SELECT 
+        EMPLID,
+        DOB, -- Date of Birth
+        Service_Years, 
+        (CURRENT_DATE - DOB) / 365 AS Age, -- Calculate age based on DOB
+        CASE 
+            WHEN (CURRENT_DATE - DOB) / 365 >= 55 AND Service_Years >= 30 THEN 'YES'
+            ELSE 'NO'
+        END AS Retirement_Eligible_Flag
+    FROM 
+        employees -- Replace with your actual employee table
+    WHERE 
+        active = 'Y' -- Assuming there is an 'active' flag
+)
+
 SELECT 
-    EMPLID,
+    EMPLID, 
     COUNT(DISTINCT EMPLID) AS Employee_Count
 FROM 
     cte_detail
