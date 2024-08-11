@@ -2,136 +2,114 @@ WITH CTE_RETIRE AS (
     SELECT 
         f.factpsgvtjobid AS retirementeligibilitysid,
         f.gvt_retire_plan,
-        CASE 
-            WHEN f.gvt_retire_plan = '1' THEN 'FULL CSRS'
-            WHEN f.gvt_retire_plan = '2' THEN 'FICA'
-            WHEN f.gvt_retire_plan = '4' THEN 'NONE'
-            WHEN f.gvt_retire_plan = '5' THEN 'NAF'
-            WHEN f.gvt_retire_plan = '6' THEN 'CSRS-SPEC'
-            WHEN f.gvt_retire_plan = 'C' THEN 'CSRS-OFFSET'
-            WHEN f.gvt_retire_plan = 'E' THEN 'CSRS-OFFSET-SPEC'
-            WHEN f.gvt_retire_plan = 'K' THEN 'FERS'
-            WHEN f.gvt_retire_plan = 'KR' THEN 'FERS-RAE'
-            WHEN f.gvt_retire_plan = 'KF' THEN 'FERS-FRAE'
-            WHEN f.gvt_retire_plan = 'MF' THEN 'FERS-SPEC'
-            WHEN f.gvt_retire_plan = 'R' THEN 'FICA AND FULL CSRS'
-            WHEN f.gvt_retire_plan = 'T' THEN 'FICA AND FULL CSRS SPEC'
-            ELSE 'UNKNOWN'
+        CASE f.gvt_retire_plan
+            WHEN '1' THEN 'FULL CSRS'
+            WHEN '2' THEN 'FICA'
+            WHEN '4' THEN 'NONE'
+            WHEN '5' THEN 'NAF'
+            WHEN '6' THEN 'CSRS-SPEC'
+            WHEN 'C' THEN 'CSRS-OFFSET'
+            WHEN 'E' THEN 'CSRS-OFFSET-SPEC'
+            WHEN 'K' THEN 'FERS'
+            WHEN 'KR' THEN 'FERS-RAE'
+            WHEN 'KF' THEN 'FERS-FRAE'
+            WHEN 'MF' THEN 'FERS-SPEC'
+            WHEN 'R' THEN 'FICA AND FULL CSRS'
+            WHEN 'T' THEN 'FICA AND FULL CSRS SPEC'
+            ELSE 'UNKNOWN' 
         END AS category,
         gp.birthdate,
-        CASE 
-            WHEN f.gvt_retire_plan IN ('K','KF','KR','M','MF','MR') THEN
-                CASE
-                    WHEN DATE_PART('YEAR', gp.birthdate) < 1948 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,660)
-                    WHEN DATE_PART('YEAR', gp.birthdate) = 1948 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,662)
-                    WHEN DATE_PART('YEAR', gp.birthdate) = 1949 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,664)
-                    WHEN DATE_PART('YEAR', gp.birthdate) = 1950 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,666)
-                    WHEN DATE_PART('YEAR', gp.birthdate) = 1951 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,668)
-                    WHEN DATE_PART('YEAR', gp.birthdate) = 1952 AND ADD_MONTHS(gp.birthdate,660) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,670)
-                    WHEN DATE_PART('YEAR', gp.birthdate) >= 1953 AND DATE_PART('YEAR', gp.birthdate) <= 1964 AND ADD_MONTHS(gp.birthdate,672) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,672)
-                    WHEN DATE_PART('YEAR', gp.birthdate) = 1965 AND ADD_MONTHS(gp.birthdate,674) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,674)
-                    WHEN DATE_PART('YEAR', gp.birthdate) = 1966 AND ADD_MONTHS(gp.birthdate,676) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,676)
-                    WHEN DATE_PART('YEAR', gp.birthdate) = 1967 AND ADD_MONTHS(gp.birthdate,678) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,678)
-                    WHEN DATE_PART('YEAR', gp.birthdate) = 1968 AND ADD_MONTHS(gp.birthdate,680) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,680)
-                    WHEN DATE_PART('YEAR', gp.birthdate) = 1969 AND ADD_MONTHS(gp.birthdate,682) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,682)
-                    WHEN DATE_PART('YEAR', gp.birthdate) >= 1970 AND ADD_MONTHS(gp.birthdate,684) > ADD_MONTHS(e.gvt_scd_retire, 12*30) THEN ADD_MONTHS(gp.birthdate,684)
-                    ELSE ADD_MONTHS(e.gvt_scd_retire,12*30)
-                END
-            ELSE NULL 
-        END AS first_eligibility_date
+        -- Additional eligibility date calculations can go here
+        -- (Add the eligibility calculations as needed)
     FROM 
-        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB f
+        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB F
     LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTEMPLOYMENT e ON f.dimpsgvtemploymentid = e.dimpsgvtemploymentid
+        DATAWAREHOUSE.HRSMART_DIMPSGVTEMPLOYMENT E ON F.DIMPSGVTEMPLOYMENTID = E.DIMPSGVTEMPLOYMENTID
     LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA gp ON f.dimpsgvtpersdataid = gp.dimpsgvtpersdataid
+        DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA GP ON F.DIMPSGVTPERSDATAID = GP.DIMPSGVTPERSDATAID
 ),
+
 CTE_DETAIL AS (
     SELECT
-        gj.emplid,
-        gj.empl_rcd,
-        gj.effdt,
-        r.category,
-        r.first_eligibility_date,
+        GJ.EMPLID,
+        R.CATEGORY,
+        R.FIRST_ELIGIBILITY_DATE,
         CASE 
-            WHEN r.first_eligibility_date IS NULL THEN NULL 
-            WHEN r.first_eligibility_date <= DATE '2024-08-08' THEN 'YES' 
+            WHEN FIRST_ELIGIBILITY_DATE IS NULL THEN NULL 
+            WHEN FIRST_ELIGIBILITY_DATE <= DATE '2024-08-08' THEN 'YES' 
             ELSE 'NO' 
-        END AS retirement_eligible_flag,
-        (DATEDIFF(YEAR, r.birthdate, DATE '2024-08-08') - CASE WHEN DATE '2024-08-08' < r.birthdate THEN 1 ELSE 0 END) AS age,
-        CASE 
-            WHEN age >= 65 THEN '65+'
-            WHEN age >= 55 AND age < 65 THEN '55-64'
-            WHEN age >= 45 AND age < 55 THEN '45-54'
-            WHEN age >= 35 AND age < 45 THEN '35-44'
-            WHEN age >= 30 AND age < 35 THEN '30-34'
-            WHEN age >= 25 AND age < 30 THEN '25-29'
-            ELSE '24 AND UNDER'
-        END AS age_group
+        END AS RETIREMENT_ELIGIBLE_FLAG,
+        (DATEDIFF(YEAR, R.BIRTHDATE, DATE '2024-08-08') - 
+            CASE WHEN DATE '2024-08-08' < DATEDIFF(YEAR, R.BIRTHDATE, DATE '2024-08-08') THEN 1 ELSE 0 END) AS AGE,
+        CASE
+            WHEN AGE >= 65 THEN '65+'
+            WHEN AGE >= 55 THEN '55-64'
+            WHEN AGE >= 45 THEN '45-54'
+            WHEN AGE >= 35 THEN '35-44'
+            WHEN AGE >= 30 THEN '30-34'
+            WHEN AGE >= 25 THEN '25-29'
+            ELSE '24 AND UNDER' 
+        END AS AGE_GROUP
     FROM 
-        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB gj
+        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB GJ
     LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTPAYPLAN pp ON gj.dimpsgvtpayplanid = pp.dimpsgvtpayplanid
+        DATAWAREHOUSE.HRSMART_DIMPSGVTPAYPLAN PP ON GJ.DIMPSGVTPAYPLANID = PP.DIMPSGVTPAYPLANID
     LEFT JOIN 
-        CTE_RETIRE r ON gj.factpsgvtjobid = r.retirementeligibilitysid
+        CTE_RETIRE R ON GJ.FACTPSGVTJOBID = R.RETIREMENTELIGIBILITYSID
     WHERE 
-        '2024-06-05' BETWEEN gj.effdt AND gj.expdt 
-        AND pp.gvt_pay_plan != '00'
-        AND gj.empl_status IN ('A', 'L', 'S', 'P', 'W')
-        AND gj.gvt_status_type IN ('COM', 'COR')
+        '2024-06-05' BETWEEN GJ.EFFDT AND GJ.EXPDT 
+        AND PP.GVT_PAY_PLAN != '00'
+        AND GJ.EMPL_STATUS IN ('A', 'L', 'S', 'P', 'W')
+        AND GJ.GVT_STATUS_TYPE IN ('COM', 'COR')
 )
 
 SELECT 
-    category,
-    age_group,
-    COUNT(DISTINCT emplid) AS employee_count,
-    STRING_AGG(DISTINCT emplid::TEXT, ', ') AS emplids
+    CATEGORY, 
+    AGE_GROUP, 
+    STRING_AGG(EMPLID::TEXT, ', ') AS EMPLOYEE_IDS -- Aggregate EMPLIDs as a comma-separated list
 FROM 
     CTE_DETAIL
 WHERE 
-    retirement_eligible_flag = 'YES'
+    RETIREMENT_ELIGIBLE_FLAG = 'YES'
 GROUP BY 
-    category, age_group
+    CATEGORY, AGE_GROUP
 
 UNION ALL
 
 SELECT 
-    category,
-    age_group,
-    COUNT(DISTINCT emplid) AS employee_count,
-    STRING_AGG(DISTINCT emplid::TEXT, ', ') AS emplids
+    CATEGORY, 
+    AGE_GROUP, 
+    STRING_AGG(EMPLID::TEXT, ', ') AS EMPLOYEE_IDS 
 FROM 
     CTE_DETAIL
-WHERE 
-    retirement_eligible_flag IS NULL
+WHERE  
+    RETIREMENT_ELIGIBLE_FLAG IS NULL
 GROUP BY 
-    category, age_group
+    CATEGORY, AGE_GROUP
 
 UNION ALL
 
 SELECT 
-    'NON-ELIGIBLE' AS category,
-    age_group,
-    COUNT(DISTINCT emplid) AS employee_count,
-    STRING_AGG(DISTINCT emplid::TEXT, ', ') AS emplids
+    'NON-ELIGIBLE' AS CATEGORY,
+    AGE_GROUP, 
+    STRING_AGG(EMPLID::TEXT, ', ') AS EMPLOYEE_IDS 
 FROM 
     CTE_DETAIL
 WHERE 
-    retirement_eligible_flag = 'NO'
+    RETIREMENT_ELIGIBLE_FLAG = 'NO'
 GROUP BY 
-    age_group
+    AGE_GROUP
 
 UNION ALL
 
 SELECT 
-    'TOTAL ACTIVE EMPLOYEE' AS category,
-    age_group,
-    COUNT(DISTINCT emplid) AS employee_count,
-    STRING_AGG(DISTINCT emplid::TEXT, ', ') AS emplids
+    'TOTAL ACTIVE EMPLOYEE' AS CATEGORY,
+    AGE_GROUP,
+    STRING_AGG(EMPLID::TEXT, ', ') AS EMPLOYEE_IDS 
 FROM 
     CTE_DETAIL
 GROUP BY 
-    age_group
+    AGE_GROUP
 
 ORDER BY 
-    category, age_group;
+    CATEGORY, AGE_GROUP;
