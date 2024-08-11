@@ -1,62 +1,11 @@
-WITH CTE_RETIRE AS (
-    SELECT 
-        f.factpsgvtjobid AS retirementeligibilitysid,
-        CASE f.gvt_retire_plan
-            WHEN '1' THEN 'FULL CSRS'
-            WHEN '2' THEN 'FICA'
-            WHEN '4' THEN 'NONE'
-            WHEN '5' THEN 'NAF'
-            WHEN '6' THEN 'CSRS-SPEC'
-            WHEN 'C' THEN 'CSRS-OFFSET'
-            WHEN 'E' THEN 'CSRS-OFFSET-SPEC'
-            WHEN 'K' THEN 'FERS'
-            WHEN 'KR' THEN 'FERS-RAE'
-            WHEN 'KF' THEN 'FERS-FRAE'
-            WHEN 'MF' THEN 'FERS-SPEC'
-            WHEN 'R' THEN 'FICA AND FULL CSRS'
-            WHEN 'T' THEN 'FICA AND FULL CSRS SPEC'
-            ELSE 'UNKNOWN'
-        END AS category,
-        gp.birthdate
-    FROM 
-        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB f
-    LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA gp ON f.DIMPSGVTPERSDATAID = gp.DIMPSGVTPERSDATAID
-),
-CTE_DETAIL AS (
-    SELECT
-        GJ.EMPLID,
-        CASE 
-            WHEN (DATEDIFF(YEAR, gp.birthdate, DATE'2024-08-08') >= 65) THEN '65+'
-            WHEN (DATEDIFF(YEAR, gp.birthdate, DATE'2024-08-08') BETWEEN 55 AND 64) THEN '55-64'
-            WHEN (DATEDIFF(YEAR, gp.birthdate, DATE'2024-08-08') BETWEEN 45 AND 54) THEN '45-54'
-            WHEN (DATEDIFF(YEAR, gp.birthdate, DATE'2024-08-08') BETWEEN 35 AND 44) THEN '35-44'
-            WHEN (DATEDIFF(YEAR, gp.birthdate, DATE'2024-08-08') BETWEEN 30 AND 34) THEN '30-34'
-            WHEN (DATEDIFF(YEAR, gp.birthdate, DATE'2024-08-08') BETWEEN 25 AND 29) THEN '25-29'
-            ELSE '24 AND UNDER' 
-        END AS AGE_GROUP,
-        R.category
-    FROM 
-        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB GJ
-    LEFT JOIN 
-        CTE_RETIRE R ON GJ.factpsgvtjobid = R.retirementeligibilitysid
-    LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA gp ON GJ.DIMPSGVTPERSDATAID = gp.DIMPSGVTPERSDATAID
-    WHERE 
-        '2024-06-05' BETWEEN GJ.EFFDT AND GJ.EXPDT 
-        AND GJ.EMPL_STATUS IN ('A', 'L', 'S', 'P', 'W')
-        AND GJ.GVT_STATUS_TYPE IN ('COM', 'COR')
-)
 SELECT 
-    category, 
-    AGE_GROUP, 
-    COUNT(EMPLID) AS COUNT
+    EMPLID,
+    COUNT(DISTINCT EMPLID) AS Employee_Count
 FROM 
-    CTE_DETAIL
+    cte_detail
 WHERE 
-    category = 'UNKNOWN'
+    Retirement_Eligible_Flag = 'YES'
 GROUP BY 
-    category, AGE_GROUP
+    EMPLID
 ORDER BY 
-    category, AGE_GROUP;
-EA
+    EMPLID;
