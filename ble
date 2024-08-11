@@ -18,16 +18,22 @@ WITH CTE_RETIRE AS (
             ELSE 'UNKNOWN' 
         END AS category,
         gp.birthdate,
-        
-        -- Example eligibility calculation (modify as needed)
-        CASE
-            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 62 THEN CURRENT_DATE
+        E.GVT_SCD_RETIRE,
+
+        -- Eligibility calculations based on age and years of service
+        CASE 
+            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 62 AND 
+                 E.GVT_SCD_RETIRE <= CURRENT_DATE THEN CURRENT_DATE
+            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 55 AND 
+                 E.GVT_SCD_RETIRE <= CURRENT_DATE THEN CURRENT_DATE
+            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 50 AND 
+                 E.GVT_SCD_RETIRE <= CURRENT_DATE AND f.gvt_retire_plan IN ('M', 'MR', 'MF', '6', 'E', 'T') THEN CURRENT_DATE
             ELSE NULL
         END AS first_eligibility_date
     FROM 
         DATAWAREHOUSE.HRSMART_FACTPSGVTJOB F
     LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTEMPLOYMENT E ON F.DIMPSGVTEMPLOYMENTID = E.DIMPSGVTEMPLOYMENTID
+        DATAWAREHOUSE.HRSMART_DIMPSGVTEMPLOYMENT E ON F.DIMPSGVTPAYPLANID = E.DIMPSGVTPAYPLANID
     LEFT JOIN 
         DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA GP ON F.DIMPSGVTPERSDATAID = GP.DIMPSGVTPERSDATAID
 ),
@@ -36,8 +42,6 @@ CTE_DETAIL AS (
     SELECT
         GJ.EMPLID,
         R.CATEGORY,
-        
-        -- Age calculation
         DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) AS age,
         CASE 
             WHEN age >= 65 THEN '65+'
@@ -48,10 +52,9 @@ CTE_DETAIL AS (
             WHEN age >= 25 AND age < 30 THEN '25-29'
             ELSE '24 AND UNDER' 
         END AS age_group,
-        
         CASE 
             WHEN R.first_eligibility_date IS NULL THEN NULL 
-            WHEN R.first_eligibility_date <= DATE '2024-08-08' THEN 'YES' 
+            WHEN R.first_eligibility_date <= CURRENT_DATE THEN 'YES' 
             ELSE 'NO' 
         END AS retirement_eligible_flag
     FROM 
@@ -67,53 +70,61 @@ CTE_DETAIL AS (
         AND PP.GVT_PAY_PLAN != '00'
         AND GJ.EMPL_STATUS IN ('A', 'L', 'S', 'P', 'W')
         AND GJ.GVT_STATUS_TYPE IN ('COM', 'COR')
+),
+
+CTE_AGGREGATED AS (
+    SELECT 
+        CATEGORY,
+        AGE_GROUP,
+        COUNT(DISTINCT EMPLID) AS employee_count,
+        LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
+    FROM 
+        CTE_DETAIL
+    WHERE 
+        retirement_eligible_flag = 'YES'
+    GROUP BY 
+        CATEGORY, AGE_GROUP
+
+    UNION ALL
+
+    SELECT 
+        CATEGORY,
+        AGE_GROUP,
+        COUNT(DISTINCT EMPLID) AS employee_count,
+        LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
+    FROM 
+        CTE_DETAIL
+    WHERE 
+        retirement_eligible_flag IS NULL
+    GROUP BY 
+        CATEGORY, AGE_GROUP
+
+    UNION ALL
+
+    SELECT 
+        'NON-ELIGIBLE' AS CATEGORY,
+        AGE_GROUP,
+        COUNT(DISTINCT EMPLID) AS employee_count,
+        LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
+    FROM 
+        CTE_DETAIL
+    WHERE 
+        retirement_eligible_flag = 'NO'
+    GROUP BY 
+        AGE_GROUP
+
+    UNION ALL
+
+    SELECT 
+        'TOTAL ACTIVE EMPLOYEE' AS CATEGORY,
+        AGE_GROUP,
+        COUNT(DISTINCT EMPLID) AS employee_count,
+        LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
+    FROM 
+        CTE_DETAIL
+    GROUP BY 
+        AGE_GROUP
 )
 
-SELECT 
-    CATEGORY, 
-    AGE_GROUP, 
-    COUNT(DISTINCT EMPLID) AS employee_count,
-    LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
-FROM 
-    CTE_DETAIL
-WHERE 
-    retirement_eligible_flag = 'YES'
-GROUP BY 
-    CATEGORY, AGE_GROUP
-UNION ALL
-SELECT 
-    CATEGORY, 
-    AGE_GROUP, 
-    COUNT(DISTINCT EMPLID) AS employee_count,
-    LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
-FROM 
-    CTE_DETAIL
-WHERE 
-    retirement_eligible_flag IS NULL
-GROUP BY 
-    CATEGORY, AGE_GROUP
-UNION ALL
-SELECT 
-    'NON-ELIGIBLE' AS CATEGORY,
-    AGE_GROUP, 
-    COUNT(DISTINCT EMPLID) AS employee_count,
-    LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
-FROM 
-    CTE_DETAIL
-WHERE 
-    retirement_eligible_flag = 'NO'
-GROUP BY 
-    AGE_GROUP
-UNION ALL
-SELECT 
-    'TOTAL ACTIVE EMPLOYEE' AS CATEGORY,
-    AGE_GROUP,
-    COUNT(DISTINCT EMPLID) AS employee_count,
-    LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
-FROM 
-    CTE_DETAIL
-GROUP BY 
-    AGE_GROUP
-ORDER BY 
-    CATEGORY, AGE_GROUP
-LIMIT 1000;  -- Limit to avoid exceeding LISTAGG limits
+SELECT * FROM CTE_AGGREGATED
+ORDER BY CATEGORY, AGE_GROUP;
