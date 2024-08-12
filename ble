@@ -1,1 +1,199 @@
+SELECT * FROM "reporting"."vw_dimretirementeligibility" LIMIT 10;
+
+2.SELECT 
+  f.factpsgvtjobid,
+  f.dw_inserts,
+  f.gvt_retire_plan,
+  e.gvt_scd_retire,
+  gp.birthdate
+FROM 
+  datawarehouse.hrsmart_factpsgvtjob f
+  LEFT JOIN datawarehouse.hrsmart_dimpsgvtemployment e ON f.dimpsgvtemploymentid = e.dimpsgvtemploymentid
+  LEFT JOIN datawarehouse.hrsmart_dimpsgvtpersdata gp ON f.dimpsgvtpersdataid = gp.dimpsgvtpersdataid
+WHERE 
+  f.factpsgvtjobid IN (SELECT retirementeligibilitysid FROM "reporting"."vw_dimretirementeligibility" LIMIT 10);
+
+3. SELECT DISTINCT category, f.gvt_retire_plan 
+FROM "reporting"."vw_dimretirementeligibility" vw
+JOIN datawarehouse.hrsmart_factpsgvtjob f ON vw.retirementeligibilitysid = f.factpsgvtjobid;
+
+
+4.
+SELECT 
+  retirementeligibilitysid,
+  "MRA 30 Years of service",
+  "MRA 10-29 Years of service",
+  "Age 62+ and 5 years of service",
+  "Age 60+ and 20 years od service",
+  "Age 55+ and 30 years of service",
+  "Age 50+, Served 20",
+  "Any Age, Served 25",
+  first_eligibility_date
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE retirementeligibilitysid IN (SELECT retirementeligibilitysid FROM "reporting"."vw_dimretirementeligibility" LIMIT 10);
+
+5.SELECT 
+  first_eligibility_date, 
+  first_eligibility_type 
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE retirementeligibilitysid IN (SELECT retirementeligibilitysid FROM "reporting"."vw_dimretirementeligibility" LIMIT 10);
+
+6.
+
+SELECT 
+  first_eligibility_date, 
+  Retirement_Eligible_Flag 
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE retirementeligibilitysid IN (SELECT retirementeligibilitysid FROM "reporting"."vw_dimretirementeligibility" LIMIT 10);
+
+
+7.EXPLAIN SELECT COUNT(*) FROM "reporting"."vw_dimretirementeligibility";
+
+
+8.SELECT * FROM "reporting"."vw_dimretirementeligibility" 
+WHERE category = 'Unknown' 
+OR first_eligibility_date IS NULL 
+OR Retirement_Eligible_Flag IS NULL;
+
+
+9.-- Initial data snapshot
+SELECT COUNT(*) FROM "reporting"."vw_dimretirementeligibility";
+
+-- Simulate an update in the underlying tables
+UPDATE datawarehouse.hrsmart_factpsgvtjob SET gvt_retire_plan = 'K' WHERE factpsgvtjobid = 12345;
+
+-- Check data consistency after the update
+SELECT * FROM "reporting"."vw_dimretirementeligibility" WHERE retirementeligibilitysid = 12345;
+
+10.
+
+-- Count of records in the fact table
+SELECT COUNT(*) FROM datawarehouse.hrsmart_factpsgvtjob;
+
+-- Count of records in the view
+SELECT COUNT(*) FROM "reporting"."vw_dimretirementeligibility";
+
+-- Count of records in the fact table that successfully join with the dimension tables
+SELECT COUNT(*)
+FROM datawarehouse.hrsmart_factpsgvtjob f
+LEFT JOIN datawarehouse.hrsmart_dimpsgvtemployment e ON f.dimpsgvtemploymentid = e.dimpsgvtemploymentid
+LEFT JOIN datawarehouse.hrsmart_dimpsgvtpersdata gp ON f.dimpsgvtpersdataid = gp.dimpsgvtpersdataid;
+
+11.
+-- Identify any rows with NULL join keys
+SELECT COUNT(*) 
+FROM datawarehouse.hrsmart_factpsgvtjob 
+WHERE dimpsgvtemploymentid IS NULL OR dimpsgvtpersdataid IS NULL;
+
+-- Check how these NULLs are handled in the view
+SELECT * 
+FROM "reporting"."vw_dimretirementeligibility" 
+WHERE retirementeligibilitysid IN (
+  SELECT factpsgvtjobid 
+  FROM datawarehouse.hrsmart_factpsgvtjob 
+  WHERE dimpsgvtemploymentid IS NULL OR dimpsgvtpersdataid IS NULL
+);
+
+12.
+-- Check data types in the view
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_schema = 'reporting' 
+  AND table_name = 'vw_dimretirementeligibility';
+
+-- Check data types in the underlying fact table
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_schema = 'datawarehouse' 
+  AND table_name = 'hrsmart_factpsgvtjob';
+
+13.
+-- Identify employees with extreme birthdates
+SELECT * 
+FROM datawarehouse.hrsmart_dimpsgvtpersdata 
+WHERE birthdate < '1920-01-01' OR birthdate > '2000-01-01';
+
+-- Verify how these are handled in the view
+SELECT * 
+FROM "reporting"."vw_dimretirementeligibility" 
+WHERE emplid IN (
+  SELECT dimpsgvtpersdataid 
+  FROM datawarehouse.hrsmart_dimpsgvtpersdata 
+  WHERE birthdate < '1920-01-01' OR birthdate > '2000-01-01'
+);
+
+
+14.
+-- Insert a record with an invalid `gvt_retire_plan` value
+INSERT INTO datawarehouse.hrsmart_factpsgvtjob 
+(factpsgvtjobid, dw_inserts, gvt_retire_plan, dimpsgvtemploymentid, dimpsgvtpersdataid) 
+VALUES (999999, current_date, 'X', 1, 1);
+
+-- Check the view for the inserted record
+SELECT * 
+FROM "reporting"."vw_dimretirementeligibility" 
+WHERE retirementeligibilitysid = 999999;
+
+-- Cleanup
+DELETE FROM datawarehouse.hrsmart_factpsgvtjob WHERE factpsgvtjobid = 999999;
+
+
+15.
+-- Insert a record with future dates
+INSERT INTO datawarehouse.hrsmart_factpsgvtjob 
+(factpsgvtjobid, dw_inserts, gvt_retire_plan, dimpsgvtemploymentid, dimpsgvtpersdataid, gvt_effdt) 
+VALUES (999998, current_date, 'K', 1, 1, '2100-01-01');
+
+-- Check the view for the inserted record
+SELECT * 
+FROM "reporting"."vw_dimretirementeligibility" 
+WHERE retirementeligibilitysid = 999998;
+
+-- Cleanup
+DELETE FROM datawarehouse.hrsmart_factpsgvtjob WHERE factpsgvtjobid = 999998;
+
+
+
+16.
+-- Insert a duplicate record
+INSERT INTO datawarehouse.hrsmart_factpsgvtjob 
+(factpsgvtjobid, dw_inserts, gvt_retire_plan, dimpsgvtemploymentid, dimpsgvtpersdataid) 
+SELECT factpsgvtjobid, dw_inserts, gvt_retire_plan, dimpsgvtemploymentid, dimpsgvtpersdataid 
+FROM datawarehouse.hrsmart_factpsgvtjob 
+LIMIT 1;
+
+-- Check the view for duplicates
+SELECT retirementeligibilitysid, COUNT(*) 
+FROM "reporting"."vw_dimretirementeligibility" 
+GROUP BY retirementeligibilitysid 
+HAVING COUNT(*) > 1;
+
+-- Cleanup: Remove the duplicate record
+DELETE FROM datawarehouse.hrsmart_factpsgvtjob 
+WHERE factpsgvtjobid = (SELECT factpsgvtjobid FROM datawarehouse.hrsmart_factpsgvtjob ORDER BY factpsgvtjobid DESC LIMIT 1);
+
+
+17.
+-- Attempt to query the view with a user with different access levels
+SET SESSION AUTHORIZATION 'readonly_user';
+SELECT * FROM "reporting"."vw_dimretirementeligibility" LIMIT 10;
+
+-- Reset session authorization
+RESET SESSION AUTHORIZATION;
+
+18.
+-- Check for view dependencies
+SELECT * 
+FROM information_schema.view_table_usage 
+WHERE view_schema = 'reporting' 
+  AND view_name = 'vw_dimretirementeligibility';
+
+-- Test impact of a schema change
+ALTER TABLE datawarehouse.hrsmart_factpsgvtjob RENAME COLUMN gvt_retire_plan TO gvt_retirement_plan;
+
+-- Attempt to query the view after schema change
+SELECT * FROM "reporting"."vw_dimretirementeligibility" LIMIT 10;
+
+-- Revert schema change
+ALTER TABLE datawarehouse.hrsmart_factpsgvtjob RENAME COLUMN gvt_retirement_plan TO gvt_retire_plan;
 
