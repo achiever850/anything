@@ -1,145 +1,129 @@
-WITH CTE_RETIRE AS (
-    SELECT 
-        f.factpsgvtjobid AS retirementeligibilitysid,
-        CASE 
-            WHEN f.gvt_retire_plan = '1' THEN 'FULL CSRS'
-            WHEN f.gvt_retire_plan = '2' THEN 'FICA'
-            WHEN f.gvt_retire_plan = '4' THEN 'NONE'
-            WHEN f.gvt_retire_plan = '5' THEN 'NAF'
-            WHEN f.gvt_retire_plan = '6' THEN 'CSRS-SPEC'
-            WHEN f.gvt_retire_plan = 'C' THEN 'CSRS-OFFSET'
-            WHEN f.gvt_retire_plan = 'E' THEN 'CSRS-OFFSET-SPEC'
-            WHEN f.gvt_retire_plan = 'K' THEN 'FERS'
-            WHEN f.gvt_retire_plan = 'KR' THEN 'FERS-RAE'
-            WHEN f.gvt_retire_plan = 'KF' THEN 'FERS-FRAE'
-            WHEN f.gvt_retire_plan = 'MF' THEN 'FERS-SPEC'
-            WHEN f.gvt_retire_plan = 'R' THEN 'FICA AND FULL CSRS'
-            WHEN f.gvt_retire_plan = 'T' THEN 'FICA AND FULL CSRS SPEC'
-            ELSE 'UNKNOWN' 
-        END AS category,
-        gp.birthdate,
-        E.GVT_SCD_RETIRE,
-        -- Eligibility calculations based on age and years of service
-        CASE 
-            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 62 
-                 AND E.GVT_SCD_RETIRE <= CURRENT_DATE THEN CURRENT_DATE
-            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 55 
-                 AND E.GVT_SCD_RETIRE <= CURRENT_DATE THEN CURRENT_DATE
-            WHEN DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, gp.birthdate) >= 50 
-                 AND E.GVT_SCD_RETIRE <= CURRENT_DATE AND f.gvt_retire_plan IN ('M', 'MR', 'MF', '6', 'E', 'T') THEN CURRENT_DATE
-            ELSE NULL
-        END AS first_eligibility_date
-    FROM 
-        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB F
-    LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTEMPLOYMENT E ON F.DIMPSGVTPAYPLANID = E.DIMPSGVTPAYPLANID -- Ensure this is correct
-    LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA GP ON F.DIMPSGVTPERSDATAID = GP.DIMPSGVTPERSDATAID
-),
+SELECT * FROM "reporting"."vw_dimretirementeligibility" LIMIT 1;
 
-CTE_DETAIL AS (
-    SELECT
-        GJ.EMPLID,
-        R.CATEGORY,
-        DATE_PART(YEAR, CURRENT_DATE) - DATE_PART(YEAR, GP.BIRTHDATE) AS age,
-        CASE 
-            WHEN age >= 65 THEN '65+'
-            WHEN age >= 55 AND age < 65 THEN '55-64'
-            WHEN age >= 45 AND age < 55 THEN '45-54'
-            WHEN age >= 35 AND age < 45 THEN '35-44'
-            WHEN age >= 30 AND age < 35 THEN '30-34'
-            WHEN age >= 25 AND age < 30 THEN '25-29'
-            ELSE '24 AND UNDER' 
-        END AS age_group,
-        CASE 
-            WHEN R.first_eligibility_date IS NULL THEN NULL 
-            WHEN R.first_eligibility_date <= CURRENT_DATE THEN 'YES' 
-            ELSE 'NO' 
-        END AS retirement_eligible_flag
-    FROM 
-        DATAWAREHOUSE.HRSMART_FACTPSGVTJOB GJ
-    LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTPAYPLAN PP ON GJ.DIMPSGVTPAYPLANID = PP.DIMPSGVTPAYPLANID
-    LEFT JOIN 
-        CTE_RETIRE R ON GJ.FACTPSGVTJOBID = R.retirementeligibilitysid
-    LEFT JOIN 
-        DATAWAREHOUSE.HRSMART_DIMPSGVTPERSDATA GP ON GJ.DIMPSGVTPERSDATAID = GP.DIMPSGVTPERSDATAID
-    WHERE 
-        '2024-06-05' BETWEEN GJ.EFFDT AND GJ.EXPDT 
-        AND PP.GVT_PAY_PLAN != '00'
-        AND GJ.EMPL_STATUS IN ('A', 'L', 'S', 'P', 'W')
-        AND GJ.GVT_STATUS_TYPE IN ('COM', 'COR')
-),
+SELECT COUNT(*) AS column_count
+FROM information_schema.columns
+WHERE table_name = 'vw_dimretirementeligibility';
 
-CTE_AGGREGATED AS (
-    SELECT 
-        CATEGORY,
-        AGE_GROUP,
-        COUNT(DISTINCT EMPLID) AS employee_count
-    FROM 
-        CTE_DETAIL
-    WHERE 
-        retirement_eligible_flag = 'YES'
-    GROUP BY 
-        CATEGORY, AGE_GROUP
 
-    UNION ALL
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'vw_dimretirementeligibility';
 
-    SELECT 
-        CATEGORY,
-        AGE_GROUP,
-        COUNT(DISTINCT EMPLID) AS employee_count
-    FROM 
-        CTE_DETAIL
-    WHERE 
-        retirement_eligible_flag IS NULL
-    GROUP BY 
-        CATEGORY, AGE_GROUP
 
-    UNION ALL
+4th----------------------------------------------
 
-    SELECT 
-        'NON-ELIGIBLE' AS CATEGORY,
-        AGE_GROUP,
-        COUNT(DISTINCT EMPLID) AS employee_count
-    FROM 
-        CTE_DETAIL
-    WHERE 
-        retirement_eligible_flag = 'NO'
-    GROUP BY 
-        AGE_GROUP
 
-    UNION ALL
+SELECT gvt_retire_plan, category
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE gvt_retire_plan IN ('1', '2', '4', '5', '6', 'C', 'E', 'K', 'KR', 'KF', 'M', 'MR', 'MF', 'R', 'T');
 
-    SELECT 
-        'TOTAL ACTIVE EMPLOYEE' AS CATEGORY,
-        AGE_GROUP,
-        COUNT(DISTINCT EMPLID) AS employee_count
-    FROM 
-        CTE_DETAIL
-    GROUP BY 
-        AGE_GROUP
-),
 
-CTE_EMPLOYEE_IDS AS (
-    SELECT 
-        CATEGORY,
-        AGE_GROUP,
-        LISTAGG(EMPLID, ', ') WITHIN GROUP (ORDER BY EMPLID) AS employee_ids
-    FROM 
-        CTE_DETAIL
-    GROUP BY 
-        CATEGORY, AGE_GROUP
-)
 
-SELECT 
-    A.CATEGORY,
-    A.AGE_GROUP,
-    A.employee_count,
-    B.employee_ids
-FROM 
-    CTE_AGGREGATED A
-LEFT JOIN 
-    CTE_EMPLOYEE_IDS B ON A.CATEGORY = B.CATEGORY AND A.AGE_GROUP = B.AGE_GROUP
-ORDER BY 
-    A.CATEGORY, A.AGE_GROUP;
+SELECT birthdate, age, Age_group
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE birthdate IN ('1950-01-01', '1970-01-01', '1990-01-01', '2000-01-01');
+
+
+SELECT emplid, first_eligibility_date, Retirement_Eligible_Flag
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE Retirement_Eligible_Flag IS NOT NULL;
+
+
+8.-- Test cases with specific birthdates and service dates
+SELECT *
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE birthdate = '1955-01-01';  -- Adjust birthdate based on eligibility criteria
+
+9. SELECT COUNT(*) AS null_count
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE first_eligibility_date IS NULL OR emplid IS NULL;
+
+10.-- Timing the execution of the view
+EXPLAIN ANALYZE SELECT * FROM "reporting"."vw_dimretirementeligibility";
+
+
+11.SELECT COUNT(*) AS null_count
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE retirementeligibilitysid IS NULL OR emplid IS NULL OR first_eligibility_date IS NULL;
+
+12.SELECT COUNT(*) AS null_count
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE retirementeligibilitysid IS NULL OR emplid IS NULL OR first_eligibility_date IS NULL;
+
+
+13.SELECT emplid, birthdate, age
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE birthdate IN ('1950-01-01', '1980-01-01', '1995-01-01', '2005-01-01');
+
+
+14.
+SELECT emplid, first_eligibility_date, Retirement_Eligible_Flag
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE first_eligibility_date BETWEEN CURRENT_DATE - INTERVAL '30 days' AND CURRENT_DATE + INTERVAL '30 days';
+
+15.
+SELECT emplid, gvt_type_of_appt, Retirement_Eligible_Flag
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE gvt_type_of_appt IN ('Full-time', 'Part-time', 'Temporary');
+
+
+16.
+SELECT emplid, first_eligibility_date, first_eligibility_type
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE first_eligibility_type IS NOT NULL;
+
+17.
+SELECT emplid, gvt_retire_plan, first_eligibility_date, first_eligibility_type
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE gvt_retire_plan IN ('K', 'M', '1') AND first_eligibility_date IS NOT NULL;
+
+
+18.
+
+EXPLAIN ANALYZE SELECT * FROM "reporting"."vw_dimretirementeligibility";
+
+
+19.
+SELECT emplid, gvt_effdt, first_eligibility_date
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE gvt_effdt < CURRENT_DATE;
+
+
+20.
+SELECT emplid, COUNT(*) AS count
+FROM "reporting"."vw_dimretirementeligibility"
+GROUP BY emplid
+HAVING COUNT(*) > 1;
+
+21.
+SELECT gvt_retire_plan, COUNT(*) AS count, AVG(age) AS avg_age
+FROM "reporting"."vw_dimretirementeligibility"
+GROUP BY gvt_retire_plan
+ORDER BY count DESC;
+
+22.
+SELECT f.emplid, e.GVT_SCD_RETIRE, gp.birthdate
+FROM datawarehouse.hrsmart_factpsgvtjob f
+LEFT JOIN datawarehouse.hrsmart_dimpsgvtemployment e ON f.dimpsgvtemploymentid = e.dimpsgvtemploymentid
+LEFT JOIN datawarehouse.hrsmart_dimpsgvtpersdata gp ON f.dimpsgvtpersdataid = gp.dimpsgvtpersdataid
+WHERE f.emplid IN (SELECT emplid FROM "reporting"."vw_dimretirementeligibility");
+
+
+23.
+SELECT emplid, birthdate, age
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE birthdate IN ('1984-02-29', '1976-02-29', '2000-02-29');
+
+
+24.
+SELECT emplid, first_eligibility_date, Retirement_Eligible_Flag
+FROM "reporting"."vw_dimretirementeligibility"
+WHERE (first_eligibility_date <= CURRENT_DATE AND Retirement_Eligible_Flag = 'YES') OR
+      (first_eligibility_date > CURRENT_DATE AND Retirement_Eligible_Flag = 'NO');
+
+
+25.
+
+SELECT category, COUNT(*) AS count
+FROM "reporting"."vw_dimretirementeligibility"
+GROUP BY category;
