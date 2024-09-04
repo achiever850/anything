@@ -80,8 +80,28 @@ class ReadAPI:
             raw_api_data_list = raw_api_data['data']
             self.df = self.convert_raw_list_to_df(raw_api_data_list)
             print("Initial data fetched successfully.")
+            print(f"DataFrame Schema: {self.df.printSchema()}")
+            print(f"Number of rows to write: {self.df.count()}")
         else:
             print("Error: API data is incomplete or not in the expected format.")
+
+        # Writing to Redshift
+        my_conn_options = {
+            "table": "prakash_csv_test.newhireappointingauthority",
+            "database": "hcd-dev-db",
+            "aws_iam_role": "arn:aws:iam::your-account-id:role/your-iam-role",
+            "redshift_tmp_dir": "s3://your-s3-bucket/temporary/"
+        }
+        
+        print(f"Writing into Redshift table: {my_conn_options}")
+        input_dynamic_frame = glueContext.create_dynamic_frame.from_dataframe(self.df, glueContext, "input_dynamic_frame")
+        glueContext.write_dynamic_frame.from_jdbc_conf(
+            frame=input_dynamic_frame,
+            catalog_connection="Redshift connection",
+            connection_options=my_conn_options
+        )
+
+        print(f"Loaded data into Redshift table: {self.table_name}")
 
 # Initialize Spark and Glue Context
 sc = SparkContext()
