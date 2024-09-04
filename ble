@@ -1,1 +1,93 @@
+from pyspark.sql import SparkSession
+import requests
 
+class ReadAPI:
+    def __init__(self, table_name, api_url_key, table_schema, timestamp_col_li):
+        self.headers = {
+            'Api-Key': 'your_api_key_here'
+        }
+        self.table_schema = table_schema
+        self.timestamp_columns = timestamp_col_li
+        self.api_url = f"https://developer.usastaffing.gov/api/{api_url_key}"
+        self.table_name = table_name
+
+    def fetch_api_data(self, api_url):
+        try:
+            response = requests.get(api_url, headers=self.headers)
+            if response.status_code == 200:
+                data = response.json()
+                print(f"API Response: {data}")
+                return data
+            else:
+                print(f"Error: Received status code {response.status_code}")
+                return None
+        except Exception as e:
+            print(f"Exception occurred while fetching API data: {e}")
+            return None
+
+    def handle_pagination(self, raw_api_data):
+        if raw_api_data is None:
+            print("Error: raw_api_data is None in handle_pagination")
+            return
+
+        if 'paging' not in raw_api_data:
+            print("Error: 'paging' not in raw_api_data")
+            return
+
+        page_dict = raw_api_data['paging']
+        self.totalcount = page_dict.get('metadata', {}).get('totalCount', 0)
+        self.pagesize = page_dict.get('metadata', {}).get('pageSize', 0)
+        self.currentpage = page_dict.get('metadata', {}).get('currentPage', 0)
+        self.totalpages = page_dict.get('metadata', {}).get('totalPages', 0)
+        self.snapshot = page_dict.get('metadata', {}).get('snapshot', '')
+        self.previous = page_dict.get('previous', None)
+        self.next_api_url = page_dict.get('next', None)
+
+        print(f"Pagination Info - Total Pages: {self.totalpages}, Current Page: {self.currentpage}")
+
+    def extract_links_rel_list(self, raw_api_data):
+        if raw_api_data is None or 'data' not in raw_api_data:
+            print("Error: raw_api_data is None or 'data' key missing in extract_links_rel_list")
+            return
+
+        data_list = raw_api_data['data']
+        if not data_list or '_links' not in data_list[0]:
+            print("Error: '_links' key missing in the first item of 'data'")
+            return
+
+        link_li = data_list[0]['_links']
+        self.links_rel_list = [ele['rel'] for ele in link_li if ele['rel'] != 'self']
+
+        print(f"Extracted links_rel_list: {self.links_rel_list}")
+
+    def convert_raw_list_to_df(self, raw_api_data_list):
+        df = spark.createDataFrame(raw_api_data_list, schema=self.table_schema)
+        return df
+
+    def execute(self):
+        raw_api_data = self.fetch_api_data(self.api_url)
+        if raw_api_data is None:
+            print("Error: raw_api_data is None in execute")
+            return
+
+        self.extract_links_rel_list(raw_api_data)
+        self.handle_pagination(raw_api_data)
+
+        if raw_api_data and 'data' in raw_api_data:
+            raw_api_data_list = raw_api_data['data']
+            self.df = self.convert_raw_list_to_df(raw_api_data_list)
+            print("Initial data fetched successfully.")
+        else:
+            print("Error: API data is incomplete or not in the expected format.")
+
+# Initialize Spark
+spark = SparkSession.builder.master("local").appName("API Reader").getOrCreate()
+
+# Example usage with your parameters
+table_name = "prakash_csv_test.newhireappointingauthority"
+api_url_key = "newhires"
+table_schema = "schema_definition_here"  # Replace this with the actual schema definition or object
+timestamp_col_li = ["dwlastmodifiedtime"]
+
+api_reader = ReadAPI(table_name, api_url_key, table_schema, timestamp_col_li)
+api_reader.execute()
