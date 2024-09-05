@@ -1,0 +1,306 @@
+# Corrected AWS Glue Script
+
+from awsglue.dynamicframe import DynamicFrame
+import requests
+import sys
+from pyspark.sql import SparkSession
+from awsglue.transforms import *
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from pyspark.sql.functions import udf, col, lit, to_timestamp, regexp_replace, when, concat
+from pyspark.sql.types import (
+    StructType,
+    StructField,
+    StringType,
+    IntegerType,
+    LongType,
+    DoubleType,
+    BooleanType,
+    ArrayType,
+    MapType
+)
+from awsglue.context import GlueContext
+from awsglue.job import Job
+from pyspark import SparkConf
+
+# Optional: Configure Spark settings if needed
+# conf = SparkConf().set("spark.driver.maxResultSize", "4g")
+# sc = SparkContext(conf=conf)
+
+# Initialize Glue job parameters
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 'APP_NAME'])  # Added 'APP_NAME' to expected arguments
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args['JOB_NAME'], args)
+
+# Application-specific configurations
+appname = args.get('APP_NAME', 'default_app_name')  # Provide a default value if 'APP_NAME' is not passed
+base_api_url = "https://developer.usastaffing.gov/api/"
+api_key = '6WsWnZc1h11900R1JJEsNrVbQoCXyX5d11qvEmzbbvyROFadle08EYsA¡IsmVWyr'
+
+# Set up headers for API requests
+headers = {
+    'Api-Key': api_key
+}
+
+# Define a User-Defined Function (UDF) for extracting IDs from links
+@udf(returnType=StringType())
+def extract_id_from_links(links, rel_value):
+    print("Inside UDF: extract_id_from_links")
+    if not links:
+        return None
+    for link in links:
+        if link.get('rel') == rel_value:
+            try:
+                href = link.get('href', '')
+                if '/by/' in href:
+                    val = href.split('/')[-1]
+                    res = val.split('|')[-1]
+                    return res
+                else:
+                    val = href.split('/')[3]
+                    res = val.split('|')[-1]
+                    return res
+            except Exception as e:
+                print(f"Error processing link: {href}")
+                print(e)
+                return None
+    return None
+
+# Define the ReadAPI class
+class ReadAPI:
+    def __init__(self, table_name, api_url_key, table_schema, timestamp_col_li):
+        self.headers = headers
+        self.table_schema = table_schema
+        self.timestamp_columns = timestamp_col_li
+        self.api_url = f"{base_api_url}{api_url_key}"
+        self.table_name = table_name
+        self.df = spark.createDataFrame([], schema=self.table_schema)  # Initialize empty DataFrame
+        self.links_rel_list = []
+        self.totalcount = 0
+        self.pagesize = 0
+        self.currentpage = 0
+        self.totalpages = 0
+        self.snapshot = ''
+        self.previous = None
+        self.next_api_url = None
+
+    def convert_raw_list_to_df(self, raw_api_data_list):
+        try:
+            df = spark.createDataFrame(raw_api_data_list, schema=self.table_schema)
+            return df
+        except Exception as e:
+            print(f"Error converting raw data to DataFrame: {e}")
+            return None
+
+    def fetch_api_data(self, api_url):
+        try:
+            response = requests.get(api_url, headers=self.headers)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"Error: Received status code {response.status_code} for URL {api_url}")
+                return None
+        except Exception as e:
+            print(f"Exception occurred while fetching API data: {e}")
+            return None
+
+    def handle_pagination(self, raw_api_data):
+        if 'paging' not in raw_api_data:
+            print("Error: 'paging' key not found in raw_api_data")
+            return
+        page_dict = raw_api_data['paging']
+        metadata = page_dict.get('metadata', {})
+        self.totalcount = metadata.get('totalCount', 0)
+        self.pagesize = metadata.get('pageSize', 0)
+        self.currentpage = metadata.get('currentPage', 0)
+        self.totalpages = metadata.get('totalPages', 0)
+        self.snapshot = metadata.get('snapshot', '')
+        self.previous = page_dict.get('previous', None)
+        self.next_api_url = page_dict.get('next', None)
+
+        print(f"Pagination Info - Total Pages: {self.totalpages}, Current Page: {self.currentpage}")
+
+    def extract_links_rel_list(self, raw_api_data):
+        if 'data' not in raw_api_data or not raw_api_data['data']:
+            print("Error: 'data' key missing or empty in raw_api_data")
+            return
+        first_item = raw_api_data['data'][0]
+        if '_links' not in first_item:
+            print("Error: '_links' key missing in the first item of 'data'")
+            return
+        link_li = first_item['_links']
+        self.links_rel_list = [ele['rel'] for ele in link_li if ele['rel'] != 'self']
+        print(f"Extracted links_rel_list: {self.links_rel_list}")
+
+    def concat_df(self, new_df):
+        if new_df is not None:
+            self.df = self.df.union(new_df)
+            print("Concatenated new DataFrame.")
+        else:
+            print("New DataFrame is None; skipping concatenation.")
+
+    def handle_links(self):
+        df = self.df
+        print("::: Handling links :::")
+        print(self.links_rel_list)
+        for rel_value in self.links_rel_list:
+            # Example: Drop the rel_value column if it exists
+            if rel_value in df.columns:
+                df = df.drop(rel_value)
+                print(f"Dropped column: {rel_value}")
+        self.df = df
+
+    def handle_timestamp_columns(self):
+        for column in self.timestamp_columns:
+            self.df = self.df.withColumn(
+                column,
+                when(~col(column).contains('.'), concat(col(column), lit('.000')))
+                .otherwise(col(column))
+            )
+            self.df = self.df.withColumn(
+                column,
+                to_timestamp(col(column), "yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSS")
+            )
+            print(f"Processed timestamp column: {column}")
+
+    def write_to_redshift(self, my_conn_options):
+        self.handle_links()
+        self.handle_timestamp_columns()
+        if '_links' in self.df.columns:
+            self.df = self.df.drop('_links')
+            print("Dropped '_links' column from DataFrame.")
+        
+        print(f"Writing into Redshift table with options: {my_conn_options}")
+        self.df.printSchema()
+        
+        try:
+            input_dynamic_frame = DynamicFrame.fromDF(self.df, glueContext, "input_dynamic_frame")
+            glueContext.write_dynamic_frame.from_jdbc_conf(
+                frame=input_dynamic_frame,
+                catalog_connection="Redshift_connection_hod-dev-db",  # Ensure this connection exists in Glue
+                connection_options=my_conn_options,
+                redshift_tmp_dir="s3://aws-glue-assets-094737541415-us-gov-west-1/temporary/"
+            )
+            print(f"Successfully loaded data into Redshift table: {self.table_name}")
+        except Exception as e:
+            print(f"Error writing to Redshift: {e}")
+
+    def process_next_df(self, base_api_url):
+        if not self.next_api_url:
+            print("No next API URL to process.")
+            return
+        full_api_url = f"{base_api_url}{self.next_api_url}"
+        raw_api_data = self.fetch_api_data(full_api_url)
+        if raw_api_data:
+            self.handle_pagination(raw_api_data)
+            raw_api_data_list = raw_api_data.get('data', [])
+            new_df = self.convert_raw_list_to_df(raw_api_data_list)
+            self.concat_df(new_df)
+        else:
+            print("No data fetched for the next page.")
+
+    def mark_checkpoint(self):
+        print("---------------------------------------------------------------")
+        print(f"--------------------- Page No: {self.currentpage} processed ---------------")
+        print("-----------------------------------------------------------------")
+        self.df = spark.createDataFrame([], schema=self.table_schema)  # Reset DataFrame
+
+    def mark_beginning(self):
+        print("================================================================================")
+        print(f"""===================== {self.table_name} =================================================
+Total Count   = {self.totalcount}
+Page Size     = {self.pagesize}
+Total Pages   = {self.totalpages}
+Snapshot      = {self.snapshot}""")
+        print("=================================================================================")
+
+    def execute(self, my_conn_options, batch_size):
+        # Initial API call
+        raw_api_data = self.fetch_api_data(self.api_url)
+        self.extract_links_rel_list(raw_api_data)
+        if raw_api_data:
+            self.handle_pagination(raw_api_data)
+            self.mark_beginning()
+            raw_api_data_list = raw_api_data.get('data', [])
+            self.df = self.convert_raw_list_to_df(raw_api_data_list)
+            if self.totalpages == 1:
+                self.write_to_redshift(my_conn_options)
+            else:
+                for i in range(2, self.totalpages + 1):
+                    if i % batch_size == 0:
+                        self.process_next_df(base_api_url)
+                        self.write_to_redshift(my_conn_options)
+                        self.mark_checkpoint()
+                    elif i == self.totalpages:
+                        self.process_next_df(base_api_url)
+                        self.write_to_redshift(my_conn_options)
+                    else:
+                        self.process_next_df(base_api_url)
+                        print(f"Processed page {i}")
+        else:
+            print("No data fetched from the initial API call.")
+
+# Import the map_schema module
+import map_schema as mp  # Ensure this module is available in your Glue job environment
+
+# Define table mappings
+table_dict = {
+    1: "Announcement",
+    2: "Application",
+    3: "Assessment",
+    4: "CertificateApplication",
+    5: "Certificate",
+    6: "Customer",
+    7: "NewHire",
+    8: "NewHireAppointingAuthority",
+    9: "Office",
+    10: "OnboardingTask",
+    11: "Organization",
+    12: "RequestAppointingAuthority",
+    13: "Request",
+    14: "Review",
+    15: "StaffingTask",
+    16: "TimeToHire",
+    17: "VacancyAppointingAuthority",
+    18: "VacancyFlag",
+    19: "Vacancy"
+}
+
+# Specify which tables to process
+process_tables = [8]  # Example: Processing table number 8
+batch_size = 10  # Define your desired batch size
+
+# Iterate through the selected tables and process them
+for i in process_tables:
+    table_name = table_dict.get(i)
+    if not table_name:
+        print(f"Table number {i} not found in table_dict.")
+        continue
+
+    redshift_table_name = f"prakash_csv_test.{table_name}"
+    my_conn_options = {
+        "dbtable": redshift_table_name,  # Corrected key from 'dtable' to 'dbtable'
+        "database": "hcd-dev-db",
+        "aws_iam_role": "arn:aws:iam::your-account-id:role/your-iam-role",  # Replace with your IAM role ARN
+        "redshift_tmp_dir": "s3://your-s3-bucket/temporary/"  # Replace with your S3 bucket path
+    }
+
+    # Retrieve table schema, timestamp columns, and API URL key from map_schema module
+    table_schema, timestamp_col_li, api_url_key = mp.get_table_attributes(table_name)
+    
+    # Initialize ReadAPI instance
+    api_reader = ReadAPI(
+        table_name=redshift_table_name,
+        api_url_key=api_url_key,
+        table_schema=table_schema,
+        timestamp_col_li=timestamp_col_li
+    )
+    
+    # Execute the data fetching and loading process
+    api_reader.execute(my_conn_options, batch_size)
+
+# Commit the Glue job
+job.commit()
