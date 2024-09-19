@@ -1,0 +1,21 @@
+import requests
+
+# API request
+response = requests.get('https://your_api_endpoint')
+api_data = response.json()
+
+# Check for null values across multiple columns
+null_columns = ['column1', 'column2', 'column3']  # List of columns to check
+
+# Loop through all records and find where null values exist
+null_records = []
+for record in api_data['data']:
+    for column in null_columns:
+        if record.get(column) is None:  # Check if the column has a null value
+            null_records.append(record)
+            break  # Move to the next record once a null is found
+
+# Output the null records
+print(f"Found {len(null_records)} records with null values:")
+for record in null_records:
+    print(record)
