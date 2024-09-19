@@ -1,21 +1,39 @@
 import requests
 
-# API request
-response = requests.get('https://your_api_endpoint')
-api_data = response.json()
+# API endpoint
+url = 'https://developer.usastaffing.gov/api/vacancies'
 
-# Check for null values across multiple columns
-null_columns = ['column1', 'column2', 'column3']  # List of columns to check
+# Authentication headers (if required)
+headers = {
+    'Authorization': 'Bearer your_api_key'  # Replace with your actual API key if needed
+}
 
-# Loop through all records and find where null values exist
-null_records = []
-for record in api_data['data']:
-    for column in null_columns:
-        if record.get(column) is None:  # Check if the column has a null value
-            null_records.append(record)
-            break  # Move to the next record once a null is found
+# Fetch data from the API
+response = requests.get(url, headers=headers)
 
-# Output the null records
-print(f"Found {len(null_records)} records with null values:")
-for record in null_records:
-    print(record)
+if response.status_code == 200:
+    api_data = response.json()
+    
+    # Assuming 'data' contains the list of records
+    records = api_data.get('data', [])
+
+    # Define the columns that are supposed to be NOT NULL
+    not_null_columns = ['column1', 'column2', 'column3']  # Replace with actual column names
+
+    # List to store records with null values
+    null_records = []
+
+    # Check each record for null values in the NOT NULL columns
+    for record in records:
+        for column in not_null_columns:
+            if record.get(column) is None:
+                null_records.append(record)
+                break  # Move to the next record once a null is found
+
+    # Output the null records
+    print(f"Found {len(null_records)} records with null values:")
+    for record in null_records:
+        print(record)
+else:
+    print(f"Failed to retrieve data: {response.status_code}")
+
