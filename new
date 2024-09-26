@@ -1,0 +1,216 @@
+from awsglue.dynamicframe import DynamicFrame
+import requests
+import sys
+from pyspark.sql import SparkSession
+from awsglue.transforms import *
+from awsglue.utils import getResolvedoptions
+from pyspark.context import SparkContext
+from pyspark.sql.functions import udf, col, lit, to_timestamp, when, concat
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+from awsglue.context import GlueContext
+from awsglue.job import Job
+from pyspark.sql import DataFrame
+
+# S3 bucket name and path for checkpoint
+checkpoint_bucket = "hcd-dev-ingest"
+checkpoint_file_path = f"s3://{checkpoint_bucket}/checkpoints/last_processed_page.txt"
+
+args = getResolvedoptions(sys.argv, ['JOB_NAME'])
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args['JOB_NAME'], args)
+
+base_api_url = "https://developer.usastaffing.gov/"
+api_key = 'YOUR_API_KEY'
+
+headers = {
+    'Api-Key': api_key
+}
+
+@udf(returnType=StringType())
+def extract_id_from_links(links, rel_value):
+    for link in links:
+        if link['rel'] == rel_value:
+            try:
+                if '/by/' in link['href']:
+                    val = link['href'].split('/')[-1]
+                    res = val.split('|')[-1]
+                    return res
+                else:
+                    val = link['href'].split('/')[3]
+                    res = val.split('|')[-1]
+                    return res
+            except Exception as e:
+                print(f"Error processing link: {e}")
+                return None
+    return None
+
+class ReadAPI:
+    def __init__(self, table_name, api_url_key, table_schema, timestamp_col_li):
+        self.headers = headers
+        self.table_schema = table_schema
+        self.timestamp_columns = timestamp_col_li
+        self.api_url = base_api_url + "/api/" + api_url_key
+        self.table_name = table_name
+        self.checkpoint_file_path = checkpoint_file_path
+
+    def convert_raw_list_to_df(self, raw_api_data_list):
+        df = spark.createDataFrame(raw_api_data_list, schema=self.table_schema)
+        return df
+
+    def fetch_api_data(self, api_url):
+        try:
+            response = requests.get(api_url, headers=self.headers)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"Error: Received status code {response.status_code} from API.")
+        except Exception as e:
+            print(f"Exception occurred while fetching data from API: {e}")
+        return None
+
+    def handle_pagination(self, raw_api_data):
+        if raw_api_data is not None and 'paging' in raw_api_data:
+            try:
+                page_dict = raw_api_data['paging']
+                self.totalcount = page_dict['metadata']['totalCount']
+                self.pagesize = page_dict['metadata']['pageSize']
+                self.currentpage = page_dict['metadata']['currentPage']
+                self.totalpages = page_dict['metadata']['totalPages']
+                self.snapshot = page_dict['metadata']['snapshot']
+                self.previous = page_dict.get('previous', None)
+                self.next_api_url = page_dict.get('next', None)
+            except KeyError as e:
+                print(f"KeyError: {e} missing in the pagination data.")
+            except TypeError as e:
+                print(f"TypeError in pagination data: {e}")
+        else:
+            print("No pagination data found or invalid response from API.")
+
+    def extract_links_rel_list(self, raw_api_data):
+        link_li = raw_api_data['data'][0]['_links']
+        self.links_rel_list = [ele['rel'] for ele in link_li if ele['rel'] != 'self']
+
+    def concat_df(self, new_df):
+        self.df = self.df.union(new_df)
+
+    def handle_links(self):
+        df = self.df
+        for rel_value in self.links_rel_list:
+            df = df.drop(rel_value)
+        self.df = df
+
+    def handle_timestamp_columns(self):
+        for column in self.timestamp_columns:
+            self.df = self.df.withColumn(column, when(~col(column).contains('.'), concat(col(column), lit('.000'))).otherwise(col(column)))
+            self.df = self.df.withColumn(column, to_timestamp(col(column), "YYYY-MM-dd'T'HH:mm:ss.SSSSSSSSS"))
+
+    def write_to_redshift(self):
+        self.handle_links()
+        self.handle_timestamp_columns()
+        self.df = self.df.drop('_links')
+        input_dynamic_frame = DynamicFrame.fromDF(self.df, glueContext, "input_dynamic_frame")
+        glueContext.write_dynamic_frame.from_jdbc_conf(
+            frame=input_dynamic_frame,
+            catalog_connection="Redshift connection_hcd-dev-db",
+            connection_options=my_conn_options,
+            redshift_tmp_dir="s3://aws-glue-assets-094737541415-us-gov-west-1/temporary/")
+        print(f"Loaded till - {self.currentpage}")
+        self.save_checkpoint()
+
+    def process_next_df(self):
+        raw_api_data = self.fetch_api_data(base_api_url + self.next_api_url)
+        if raw_api_data:
+            self.handle_pagination(raw_api_data)
+            raw_api_data_list = raw_api_data['data']
+            new_df = self.convert_raw_list_to_df(raw_api_data_list)
+            self.concat_df(new_df)
+
+    def save_checkpoint(self):
+        checkpoint_data = [{"last_processed_page": self.currentpage}]
+        checkpoint_df = spark.createDataFrame(checkpoint_data)
+        checkpoint_df.coalesce(1).write.mode("overwrite").json(self.checkpoint_file_path)
+        print(f"Saved checkpoint at page {self.currentpage}")
+
+    def load_checkpoint(self):
+        try:
+            last_checkpoint_df = spark.read.json(self.checkpoint_file_path)
+            if last_checkpoint_df and not last_checkpoint_df.rdd.isEmpty():
+                self.currentpage = last_checkpoint_df.select("last_processed_page").first()[0] + 1
+            else:
+                print("Checkpoint file is empty or not found. Starting from page 1.")
+                self.currentpage = 1
+        except Exception as e:
+            print(f"Error reading checkpoint file: {e}. Starting from page 1.")
+            self.currentpage = 1
+
+    def mark_checkpoint(self):
+        print(f"----------------pageNo: {self.currentpage} pages processed-----------")
+
+    def mark_beginning(self):
+        print(f"=========================== {self.table_name} =============================")
+
+    def execute(self):
+        # Load the last processed page from the checkpoint
+        self.load_checkpoint()
+
+        # First time operation
+        raw_api_data = self.fetch_api_data(self.api_url)
+        self.extract_links_rel_list(raw_api_data)
+        if raw_api_data:
+            self.handle_pagination(raw_api_data)
+            self.mark_beginning()
+            raw_api_data_list = raw_api_data['data']
+            self.df = self.convert_raw_list_to_df(raw_api_data_list)
+            if self.totalpages == 1:
+                self.write_to_redshift()
+            for i in range(self.currentpage, self.totalpages + 1):
+                if i % batch_size == 0:
+                    self.process_next_df()
+                    self.write_to_redshift()
+                    self.mark_checkpoint()
+                elif i == self.totalpages:
+                    self.process_next_df()
+                    self.write_to_redshift()
+                else:
+                    self.process_next_df()
+            print("Completed the process.")
+
+import map_schema as mp
+
+table_dict = {
+    1: "Announcement",
+    2: "Application",
+    3: "Assessment",
+    4: "CertificateApplication",
+    5: "Certificate",
+    6: "Customer",
+    7: "NewHire",
+    8: "NewHireAppointingAuthority",
+    9: "Office",
+    10: "OnboardingTask",
+    11: "Organization",
+    12: "RequestAppointingAuthority",
+    13: "Request",
+    14: "Review",
+    15: "StaffingTask",
+    16: "TimeToHire",
+    17: "VacancyAppointingAuthority",
+    18: "VacancyFlag",
+    19: "Vacancy"}
+
+process_tables = [15]
+batch_size = 20
+
+for i in process_tables:
+    table_name = table_dict[i]
+    redshift_table_name = f"prakash_csv_test.{table_name}"
+    my_conn_options = {
+        "dbtable": redshift_table_name,
+        "database": "hcd-dev-db"
+    }
+    table_schema, timestamp_col_li, api_url_key = mp.get_table_attributes(table_name)
+    api_reader = ReadAPI(redshift_table_name, api_url_key, table_schema, timestamp_col_li)
+    api_reader.execute()
