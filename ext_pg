@@ -1,0 +1,221 @@
+from awsglue.dynamicframe import DynamicFrame
+import requests 
+import sys
+from pyspark.sql import SparkSession 
+from awsglue.transforms import * 
+from awsglue.utils import getResolvedoptions 
+from pyspark.context import SparkContext 
+from pyspark.sql.functions import udf, col, lit, when, concat, to_timestamp
+from pyspark.sql.types import StringType
+from awsglue.context import GlueContext
+from awsglue.job import Job
+import boto3
+
+# Initialize S3 client for storing checkpoints
+s3_client = boto3.client('s3')
+bucket_name = "your-bucket-name"
+checkpoint_file = "path/to/checkpoint.txt"
+
+## @params: [JOB NAME]
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args['JOB_NAME'], args)
+
+base_api_url = "https://developer.usastaffing.gov/"
+api_key = '6WsWZç1h11900R1JJEsNrVbQoCXyX5₫]lqvEmzbbvyR0Fadle08EYsAlIsmvWyr'
+headers = {
+    'Api-Key': api_key
+}
+
+@udf(returnType=StringType())
+def extract_id_from_links(links, rel_value):
+    print("inside udf")
+    for link in links:
+        if link['rel'] == rel_value:
+            try:
+                if '/by/' in link['href']:
+                    val = link['href'].split('/')[-1]
+                    res = val.split('|')[-1]
+                    return res
+                else:
+                    val = link['href'].split('/')[3]
+                    res = val.split('|')[-1]
+                    return res
+            except Exception as e:
+                print(link['href'])
+                print(e)
+                return None
+    return None
+
+class ReadAPI:
+    def __init__(self, table_name, api_url_key, table_schema, timestamp_col_li):
+        self.headers = headers
+        self.table_schema = table_schema
+        self.timestamp_columns = timestamp_col_li
+        self.api_url = base_api_url + "/api/" + api_url_key
+        self.table_name = table_name
+
+    def convert_raw_list_to_df(self, raw_api_data_list):
+        df = spark.createDataFrame(raw_api_data_list, schema=self.table_schema)
+        return df
+
+    def fetch_api_data(self, api_url):
+        try:
+            response = requests.get(api_url, headers=self.headers)
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            print(e)
+        return None 
+
+    def handle_pagination(self, raw_api_data):
+        page_dict = raw_api_data['paging']
+        self.totalcount = page_dict['metadata']['totalCount']
+        self.pagesize = page_dict['metadata']['pageSize']
+        self.currentpage = page_dict['metadata']['currentPage']
+        self.totalpages = page_dict['metadata']['totalPages']
+        self.snapshot = page_dict['metadata']['snapshot']
+        self.previous = page_dict['previous']
+        self.next_api_url = page_dict['next']
+
+    def extract_links_rel_list(self, raw_api_data):
+        link_li = raw_api_data['data'][0]['_links']
+        self.links_rel_list = [ele['rel'] for ele in link_li if ele['rel'] != 'self']
+
+    def concat_df(self, new_df):
+        self.df = self.df.union(new_df)
+
+    def handle_links(self):
+        df = self.df
+        print("::: the rel list :::")
+        print(self.links_rel_list)
+        for rel_value in self.links_rel_list:
+            df = df.drop(rel_value)
+        self.df = df
+
+    def handle_timestamp_columns(self):
+        for column in self.timestamp_columns:
+            self.df = self.df.withColumn(column, when(~col(column).contains('.'), concat(col(column), lit('.000'))).otherwise(col(column)))
+            self.df = self.df.withColumn(column, to_timestamp(col(column), "yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSS"))
+
+    def write_to_redshift(self):
+        self.handle_links()
+        self.handle_timestamp_columns()
+        self.df = self.df.drop('_links')
+        print(f"Writing into redshift table: {my_conn_options}")
+        input_dynamic_frame = DynamicFrame.fromDF(self.df, glueContext, "input_dynamic_frame")
+        glueContext.write_dynamic_frame.from_jdbc_conf(
+            frame=input_dynamic_frame,
+            catalog_connection="Redshift connection_hcd-dev-db",
+            connection_options=my_conn_options,
+            redshift_tmp_dir="s3://aws-glue-assets-094737541415-us-gov-west-1/temporary/")
+        print(f"Loaded till - {self.currentpage}")
+
+    def process_next_df(self):
+        raw_api_data = self.fetch_api_data(base_api_url + self.next_api_url)
+        if raw_api_data:
+            self.handle_pagination(raw_api_data)
+            raw_api_data_list = raw_api_data['data']
+            new_df = self.convert_raw_list_to_df(raw_api_data_list)
+            self.concat_df(new_df)
+
+    def mark_checkpoint(self):
+        print("-------------------------------------------------")
+        print(f"----------------pageNo: {self.currentpage} pages processed-----------")
+        print("------------------------------------------------")
+        self.df = spark.createDataFrame([], schema=self.table_schema)
+
+    def mark_beginning(self):
+        print("=======================================================================")
+        print(f"""=========================== {self.table_name} ================================
+            totalCount = {self.totalcount}
+            pageSize = {self.pagesize}
+            totalPages = {self.totalpages}
+            snapshot = {self.snapshot}""")
+        print("=======================================================================")
+
+    def save_last_processed_page(self, page):
+        s3_client.put_object(Bucket=bucket_name, Key=checkpoint_file, Body=str(page))
+        print(f"Saved last processed page: {page}")
+
+    def get_last_processed_page(self):
+        try:
+            response = s3_client.get_object(Bucket=bucket_name, Key=checkpoint_file)
+            last_page = int(response['Body'].read().decode('utf-8'))
+            print(f"Resuming from page: {last_page}")
+            return last_page
+        except s3_client.exceptions.NoSuchKey:
+            print("No checkpoint found, starting from the first page.")
+            return 1  # Start from the first page if no checkpoint is found
+
+    def execute(self):
+        # Fetch the last processed page from S3
+        start_page = self.get_last_processed_page()
+
+        # First-time operation
+        raw_api_data = self.fetch_api_data(self.api_url)
+        self.extract_links_rel_list(raw_api_data)
+        
+        if raw_api_data:
+            self.handle_pagination(raw_api_data)
+            self.mark_beginning()
+            raw_api_data_list = raw_api_data['data']
+            self.df = self.convert_raw_list_to_df(raw_api_data_list)
+
+            # Continue processing from the last processed page
+            for i in range(start_page, self.totalpages + 1):
+                if i % batch_size == 0:
+                    # Append the data in Redshift
+                    self.process_next_df()
+                    self.write_to_redshift()
+                    self.save_last_processed_page(i)  # Save the last completed page
+                    self.mark_checkpoint()
+                elif i == self.totalpages:
+                    self.process_next_df()
+                    self.write_to_redshift()
+                    self.save_last_processed_page(i)
+                else:
+                    self.process_next_df()
+
+        print("Completed the process.")
+
+import map_schema as mp
+
+table_dict = {
+    1: "Announcement",
+    2: "Application",
+    3: "Assessment",
+    4: "CertificateApplication",
+    5: "Certificate",
+    6: "Customer",
+    7: "NewHire",
+    8: "NewHireAppointingAuthority",
+    9: "Office",
+    10: "OnboardingTask",
+    11: "Organization",
+    12: "RequestAppointingAuthority",
+    13: "Request",
+    14: "Review",
+    15: "StaffingTask",
+    16: "TimeToHire",
+    17: "VacancyAppointingAuthority",
+    18: "VacancyFlag",
+    19: "Vacancy"
+}
+
+process_tables = [15]
+batch_size = 20
+
+for i in process_tables:
+    table_name = table_dict[i]
+    redshift_table_name = f"prakash_csv_test.{table_name}"
+    my_conn_options = {
+        "dbtable": redshift_table_name,
+        "database": "hcd-dev-db"
+    }
+    table_schema, timestamp_col_li, api_url_key = mp.get_table_attributes(table_name)
+    api_reader = ReadAPI(redshift_table_name, api_url_key, table_schema, timestamp_col_li)
+    df = api_reader.execute()
