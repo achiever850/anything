@@ -1,0 +1,34 @@
+import requests
+from datetime import datetime
+
+# Define your API endpoint and headers
+api_url = 'https://developer.usastaffing.gov/api/staffingtasks'
+headers = {
+    'User-Agent': 'your-application-name',
+    'Authorization': 'Bearer your_token'
+}
+
+unique_years = set()
+
+def extract_year_from_datetime(datetime_str):
+    return datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%S").year
+
+# Fetch data from API pages
+for page in range(1, 100):  # Adjust based on number of pages
+    response = requests.get(f'{api_url}?page={page}', headers=headers)
+    if response.status_code == 200:
+        data = response.json()
+        for task in data['data']:
+            # Assume dwlastmodifieddatetime is the field to check
+            dwlastmodifieddatetime = task['dwlastmodifieddatetime']
+            year = extract_year_from_datetime(dwlastmodifieddatetime)
+            unique_years.add(year)
+    else:
+        print(f"Error fetching page {page}: {response.status_code}")
+        break
+
+# Check the unique years
+if len(unique_years) == 1:
+    print(f"All records have the same year: {list(unique_years)[0]}")
+else:
+    print(f"Records have multiple years: {unique_years}")
