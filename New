@@ -64,3 +64,20 @@ Run the external ID API in the command prompt and check pages one by one using a
 Repeat this process until you identify the page that contains all the expected external IDs and columns, as some pages may not populate data for certain external IDs.
 4. Conclusion
 This document outlines the procedures for loading data from both main and external APIs into Redshift. Adhering to these guidelines will help maintain data integrity and optimize the loading process.
+
+
+
+Subject: Documentation and Status Update for Main and External IDs APIs
+
+Hello Shahzad,
+
+I'm sharing the documentation for loading data for main and external IDs APIs.
+
+Status Update:
+
+Main APIs: Successfully completed and loaded into Redshift.
+External IDs: All APIs are loaded except for "Customers." I have also completed the onboarding tasks and "Requests" previously, but these need to be rerun due to bad data from the source.
+All files are saved in the prakash_share folder as we discussed yesterday. Please find the file paths below.
+
+Best regards,
+[Your Name]
