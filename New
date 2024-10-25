@@ -1,34 +1,66 @@
-import requests
-from datetime import datetime
+Data Loading Documentation for Main and External APIs
+1. Loading Main APIs
+1.1 Jobs Overview
+Job 1: Redshift_main_tables_api
 
-# Define your API endpoint and headers
-api_url = 'https://developer.usastaffing.gov/api/staffingtasks'
-headers = {
-    'User-Agent': 'your-application-name',
-    'Authorization': 'Bearer your_token'
-}
+Purpose: Load data from APIs with less than 4 million records.
+Resource: Use G1X for cost efficiency.
+Job 2: Redshift_main_tables_bulk_load_data
 
-unique_years = set()
+Purpose: Load data from APIs with large volumes of records.
+Resource: Use G2X for higher memory capacity.
+Recovery: If the job times out or is interrupted, resume loading from the last completed page instead of starting over.
+1.2 Job Execution Guidelines
+Before running either job, adjust the table number and batch size according to the requirements.
+API response times are generally faster during evenings and weekends.
+1.3 Logging
+Monitor output logs in the Glue job for:
+Total number of pages processed
+Total records loaded
+References to specific screen shorts
+1.4 Data Synchronization
+For APIs with high volumes, refresh the Redshift table frequently to keep it in sync with the API data.
+2. Loading External ID APIs
+2.1 Process Overview
+Use two Python scripts to load data into CSV files, which are then stored in an S3 bucket before being imported into Redshift.
+2.2 Steps for Data Loading
+Run step2_expand.py
 
-def extract_year_from_datetime(datetime_str):
-    return datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%S").year
+Initial Execution: Start from page -1 for the first run.
+If the job stops, note the last successfully loaded page and resume from a lower page number (e.g., if the last loaded page is 1500, resume from 1450 or 1470).
+This method helps avoid missing pages and minimizes duplicate records, which can be handled later.
+Key Adjustments:
 
-# Fetch data from API pages
-for page in range(1, 100):  # Adjust based on number of pages
-    response = requests.get(f'{api_url}?page={page}', headers=headers)
-    if response.status_code == 200:
-        data = response.json()
-        for task in data['data']:
-            # Assume dwlastmodifieddatetime is the field to check
-            dwlastmodifieddatetime = task['dwlastmodifieddatetime']
-            year = extract_year_from_datetime(dwlastmodifieddatetime)
-            unique_years.add(year)
-    else:
-        print(f"Error fetching page {page}: {response.status_code}")
-        break
+For loading external IDs, change the key value, table name, and expand URL in both Python files before execution.
+Rejection Handling
 
-# Check the unique years
-if len(unique_years) == 1:
-    print(f"All records have the same year: {list(unique_years)[0]}")
-else:
-    print(f"Records have multiple years: {unique_years}")
+Track rejection records in a separate folder.
+Use step2_expand_rejections.py to process these rejection records.
+When rerunning this script, adjust the file name to target new rejection records.
+2.3 Important Considerations
+While processing rejection records, some may succeed upon reprocessing. Ensure all rejections are saved and processed accordingly.
+3. Onboarding Tasks
+As discussed, I have successfully extracted data for the onboarding tasks for the first time. I have shared the completed onboarding task folder at the specified path. Please check and run all the rejection records using the step2_expand_rejections.py file as we discussed.
+
+3.1 Current Status
+All main APIs have been successfully loaded. However, for external IDs, the following onboarding tasks need to be rerun:
+
+Onboarding Tasks
+Customers
+Requests
+This is necessary because all headers have changed for a few files.
+
+3.2 Common Errors
+While running external IDs, the most frequent errors observed are due to changing table columns each time the API is rerun. If you encounter these errors, ensure that:
+
+The external IDs table columns in the USA staffing page,
+The external ID mapping schema,
+The Redshift table DDLs
+must all be consistent.
+
+To troubleshoot this error:
+
+Run the external ID API in the command prompt and check pages one by one using api_data['data'][26].
+Repeat this process until you identify the page that contains all the expected external IDs and columns, as some pages may not populate data for certain external IDs.
+4. Conclusion
+This document outlines the procedures for loading data from both main and external APIs into Redshift. Adhering to these guidelines will help maintain data integrity and optimize the loading process.
