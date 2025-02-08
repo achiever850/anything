@@ -1,0 +1,147 @@
+import sys
+from awsglue.transforms import *
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
+from awsglue import DynamicFrame
+
+# Get job arguments
+args = getResolvedOptions(sys.argv, ["JOB_NAME"])
+
+# Initialize Spark and Glue contexts
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args["JOB_NAME"], args)
+
+# ✅ Load Main Folder Data (`certificateapplications/`)
+main_folder_df = glueContext.create_dynamic_frame.from_options(
+    connection_type="s3",
+    format="csv",
+    format_options={"quoteChar": '"', "withHeader": True, "separator": ","},
+    connection_options={
+        "paths": ["s3://hcd-ec2-windows-servers-file-transfer-bucket/usa_staffing_csv/certificateapplications/"],
+        "recurse": True  # Include all CSVs inside
+    },
+    transformation_ctx="main_folder_df"
+)
+
+# ✅ Load Specific Child API Subfolders
+subfolders = [
+    "certificateapplicationapplicationids/",
+    "certificateapplicationnewhireids/",
+    "certificateapplicationRankinglistIds/",
+    "certificateapplicationrequestids/"
+]
+
+# Load data from all subfolders dynamically
+all_subfolder_data = []
+for subfolder in subfolders:
+    subfolder_path = f"s3://hcd-ec2-windows-servers-file-transfer-bucket/usa_staffing_csv/certificateapplications/childapi/{subfolder}"
+    
+    subfolder_df = glueContext.create_dynamic_frame.from_options(
+        connection_type="s3",
+        format="csv",
+        format_options={"quoteChar": '"', "withHeader": True, "separator": ","},
+        connection_options={"paths": [subfolder_path], "recurse": True},
+        transformation_ctx=f"{subfolder}_df"
+    )
+    
+    all_subfolder_data.append(subfolder_df)
+
+# Merge all subfolder data into one DynamicFrame
+merged_subfolders_df = all_subfolder_data[0]
+for df in all_subfolder_data[1:]:
+    merged_subfolders_df = merged_subfolders_df.union(df)
+
+# ✅ Write Main Folder Data to Redshift
+glueContext.write_dynamic_frame.from_options(
+    frame=main_folder_df,
+    connection_type="redshift",
+    connection_options={
+        "redshiftTmpDir": "s3://aws-glue-assets-094737541415-us-gov-west-1/temporary/",
+        "useConnectionProperties": True,
+        "dbtable": "usastaffing_staging.certificateapplication",
+        "connectionName": "hed_dev_redshift_connection",
+        "preactions": """
+            CREATE TABLE IF NOT EXISTS usastaffing_staging.certificateapplication (
+                tenantid INTEGER,
+                ca_rankinglistid INTEGER,
+                ca_applicationid INTEGER,
+                applicationid VARCHAR,
+                applicationnumber VARCHAR,
+                firstname VARCHAR,
+                middlename VARCHAR,
+                lastname VARCHAR,
+                suffix VARCHAR,
+                applicationname VARCHAR,
+                startdatetime VARCHAR,
+                prioritydescription VARCHAR,
+                rankorder VARCHAR,
+                rating VARCHAR,
+                recordstatuscode VARCHAR,
+                recordstatuscodedescription VARCHAR,
+                addedflag VARCHAR,
+                addeddatetime VARCHAR,
+                auditcode VARCHAR,
+                auditdatetime VARCHAR,
+                certifieddatetime VARCHAR,
+                eligibilityadjudicationstatus VARCHAR,
+                eligibilityclaimed VARCHAR,
+                eligibleseries VARCHAR,
+                eligibilitystartdate VARCHAR,
+                eligibilityenddate VARCHAR,
+                expiredflag VARCHAR,
+                veteranpreferencecode VARCHAR,
+                veteranpreferencedescription VARCHAR,
+                hiredpdnumber VARCHAR,
+                hiredpositiontitle VARCHAR,
+                hiredseries VARCHAR,
+                hiredseriestitle VARCHAR,
+                hiredcity VARCHAR,
+                hiredcounty VARCHAR,
+                hiredstate VARCHAR,
+                hiredcountry VARCHAR,
+                hiredlocationdescription VARCHAR,
+                markedasfavoriteflag VARCHAR,
+                markedforfollowupflag VARCHAR,
+                reorderedflag VARCHAR,
+                returnstatus VARCHAR,
+                usahirecompleteddate VARCHAR,
+                originallysubmitteddatetime VARCHAR,
+                lastsubmitteddatetime VARCHAR,
+                lastmodifieddatetime VARCHAR,
+                dwlastmodifieddatetime VARCHAR
+            );
+            TRUNCATE TABLE usastaffing_staging.certificateapplication;
+        """
+    },
+    transformation_ctx="redshift_main_folder"
+)
+
+# ✅ Write Child API Subfolder Data to Redshift
+glueContext.write_dynamic_frame.from_options(
+    frame=merged_subfolders_df,
+    connection_type="redshift",
+    connection_options={
+        "redshiftTmpDir": "s3://aws-glue-assets-094737541415-us-gov-west-1/temporary/",
+        "useConnectionProperties": True,
+        "dbtable": "usastaffing_staging.certificateapplication_subfolders",
+        "connectionName": "hed_dev_redshift_connection",
+        "preactions": """
+            CREATE TABLE IF NOT EXISTS usastaffing_staging.certificateapplication_subfolders (
+                tenantid INTEGER,
+                ca_rankinglistid INTEGER,
+                ca_applicationid INTEGER,
+                applicationid VARCHAR
+            );
+            TRUNCATE TABLE usastaffing_staging.certificateapplication_subfolders;
+        """
+    },
+    transformation_ctx="redshift_subfolders"
+)
+
+# Commit job
+job.commit()
